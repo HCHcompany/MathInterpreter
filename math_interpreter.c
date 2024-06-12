@@ -357,13 +357,21 @@ Token parse_comparison(Lexer* lexer) {
             }
 
             case TOKEN_EQ: {
-                left.number_value = ((left.type == TOKEN_NUMBER) ? left.number_value : (left.string_value ? strlen(left.string_value) : 0)) == ((right.type == TOKEN_NUMBER) ? right.number_value : (right.string_value ? strlen(right.string_value) : 0));
+                if((left.type == TOKEN_NUMBER && right.type == TOKEN_NUMBER) || (left.type == TOKEN_NUMBER && right.type == TOKEN_STRING) || (left.type == TOKEN_STRING && right.type == TOKEN_NUMBER)){
+                    left.number_value = ((left.type == TOKEN_NUMBER) ? left.number_value : (left.string_value ? strlen(left.string_value) : 0)) == ((right.type == TOKEN_NUMBER) ? right.number_value : (right.string_value ? strlen(right.string_value) : 0));
+                }else if(left.type == TOKEN_STRING && right.type == TOKEN_STRING){
+                    left.number_value = (left.string_value && right.string_value) ? (strcmp(left.string_value, right.string_value) == 0) : 0;
+                }
                 left.type = TOKEN_NUMBER;
                 break;
             }
 
             case TOKEN_NE: {
-                left.number_value = ((left.type == TOKEN_NUMBER) ? left.number_value : (left.string_value ? strlen(left.string_value) : 0)) != ((right.type == TOKEN_NUMBER) ? right.number_value : (right.string_value ? strlen(right.string_value) : 0)); 
+                if((left.type == TOKEN_NUMBER && right.type == TOKEN_NUMBER) || (left.type == TOKEN_NUMBER && right.type == TOKEN_STRING) || (left.type == TOKEN_STRING && right.type == TOKEN_NUMBER)){
+                    left.number_value = ((left.type == TOKEN_NUMBER) ? left.number_value : (left.string_value ? strlen(left.string_value) : 0)) != ((right.type == TOKEN_NUMBER) ? right.number_value : (right.string_value ? strlen(right.string_value) : 0));
+                }else if(left.type == TOKEN_STRING && right.type == TOKEN_STRING){
+                    left.number_value = (left.string_value && right.string_value) ? (strcmp(left.string_value, right.string_value) != 0) : 0;
+                }
                 left.type = TOKEN_NUMBER;
                 break;
             }
