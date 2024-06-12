@@ -1,0 +1,1 @@
+Es un interprete de Matematico, este puede ser implementado en tu proyecto para diferentes fines, puedes implementarlo para tu nuevo lenguaje de programacion o como calculadora interna, su implementacion es sencilla solo debes reemplazar el codigo de la funcion main a una funcion diferente para ejecutar el codigo como libreria
