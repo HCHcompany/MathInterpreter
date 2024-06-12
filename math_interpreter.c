@@ -130,7 +130,35 @@ Token get_next_token(Lexer* lexer) {
         return get_number_token(lexer);
     }
 
-    if (lexer->text[lexer->pos] == '\'' || lexer->text[lexer->pos] == '"') {
+    if(lexer->text[lexer->pos] == '\''){
+        Token n = get_string_token(lexer);
+        if(strlen(n.string_value) < 3 && strlen(n.string_value) > 0){
+           if(strlen(n.string_value) == 2){
+              if(n.string_value[0] == '\\'){
+                 Token token = { TOKEN_NUMBER };
+                 token.number_value = (double)(int)n.string_value[1];
+                 lexer->current_token = token;
+                 lexer->string_status = false;
+                 free(n.string_value);
+                 return token;
+              }else{
+                printf("Error de declaracion de caracter: %s\n", n.string_value);
+                exit(0);     
+              }
+           }else{
+              Token token = { TOKEN_NUMBER };
+              token.number_value = (double)(int)n.string_value[0];
+              lexer->current_token = token;
+              lexer->string_status = false;
+              free(n.string_value);
+              return token;
+           }
+        }else{
+           printf("Error de declaracion de caracter.\n");
+           exit(0);
+        }
+    }else if(lexer->text[lexer->pos] == '"') {
+        lexer->string_status = true;
         return get_string_token(lexer);
     }
 
@@ -147,12 +175,12 @@ Token get_next_token(Lexer* lexer) {
         case ')': token.type = TOKEN_RPAREN; break;
         case '<':
             if (lexer->text[lexer->pos] == '=') { lexer->pos++; token.type = TOKEN_LE; }
-            else if (lexer->text[lexer->pos] == '<') { lexer->pos++; token.type = TOKEN_SHL; }
+            else if (lexer->text[lexer->pos] == '<') { lexer->pos++; token.type = TOKEN_SHL; } 
             else { token.type = TOKEN_LT; }
             break;
         case '>':
             if (lexer->text[lexer->pos] == '=') { lexer->pos++; token.type = TOKEN_GE; }
-            else if (lexer->text[lexer->pos] == '>') { lexer->pos++; token.type = TOKEN_SHR; }
+            else if (lexer->text[lexer->pos] == '>') { lexer->pos++; token.type = TOKEN_SHR; }  
             else { token.type = TOKEN_GT; }
             break;
         case '=':
@@ -168,7 +196,7 @@ Token get_next_token(Lexer* lexer) {
                 lexer->pos++;
                 token.type = TOKEN_LOGICAL_AND;
             } else {
-                token.type = TOKEN_AND;
+                token.type = TOKEN_AND; 
             }
             break;
         case '|':
@@ -257,9 +285,13 @@ Token parse_primary(Lexer* lexer) {
     if (token.type == TOKEN_NUMBER) {
         get_next_token(lexer);
         return token;
-    } else if (token.type == TOKEN_STRING) {
+    } else if (token.type == TOKEN_STRING){
         char* str_value = parse_primary_string(lexer);
         token.string_value = str_value;
+        return token;
+    } else if (token.type == TOKEN_XOR || token.type == TOKEN_SHR || token.type == TOKEN_SHL || 
+               token.type == TOKEN_AND || token.type == TOKEN_OR){
+        get_next_token(lexer);
         return token;
     } else if (token.type == TOKEN_LPAREN) {
         get_next_token(lexer); // Consume '('
@@ -270,8 +302,8 @@ Token parse_primary(Lexer* lexer) {
         }
         get_next_token(lexer); // Consume ')'
         return result;
-    } else {
-        fprintf(stderr, "Error: token inesperado en la expresión\n");
+    } else{
+        fprintf(stderr, "(1) Error: token inesperado en la expresión: %d\n", token.type);
         exit(EXIT_FAILURE);
     }
 }
@@ -316,10 +348,117 @@ Token parse_term(Lexer* lexer) {
         TokenType operator = lexer->current_token.type;
         get_next_token(lexer);
         Token right = parse_factor(lexer);
-        if (operator == TOKEN_PLUS) {
-            left.number_value += right.number_value;
-        } else if (operator == TOKEN_MINUS) {
-            left.number_value -= right.number_value;
+        if (operator == TOKEN_PLUS){
+            if(left.type == TOKEN_STRING){
+               if(right.type == TOKEN_NUMBER){
+                  char *strn = (char *)malloc(sizeof(char) * (strlen(left.string_value) + 4097));
+                  memset(strn, '\0', sizeof(char) * (strlen(left.string_value) + 4097));
+                  strcpy(strn, left.string_value);
+                  char *n = (char *)malloc(sizeof(char) * 4096);
+                  memset(n, '\0', sizeof(char) * 4096);
+                  n = dtoa(n, right.number_value);
+                  strcat(strn, n);
+                  free(n);
+                  lexer->string_status = true;
+                  left.type = TOKEN_STRING;
+                  free(left.string_value);
+                  left.string_value = NULL;
+                  left.string_value = strn;
+               }else{
+                  char *strn = (char *)malloc(sizeof(char) * (strlen(left.string_value) + strlen(right.string_value) + 1));
+                  memset(strn, '\0', sizeof(char) * (strlen(left.string_value) + strlen(right.string_value) + 1));
+                  strcpy(strn, left.string_value);
+                  strcat(strn, right.string_value);
+                  free(left.string_value);
+                  free(right.string_value);
+                  left.string_value = NULL;
+                  right.string_value = NULL;
+                  left.type = TOKEN_STRING;
+                  left.string_value = strn;
+                  lexer->string_status = true;
+               }
+            }else{
+                if(right.type == TOKEN_NUMBER){
+                   left.number_value += right.number_value;
+                   left.type = TOKEN_NUMBER;
+                   lexer->string_status = false;
+                }else{
+                   char *strn = (char *)malloc(sizeof(char) * (strlen(right.string_value) + 4097));
+                   memset(strn, '\0', sizeof(char) * (strlen(right.string_value) + 4097));
+                   char *n = (char *)malloc(sizeof(char) * 4096);
+                   memset(n, '\0', sizeof(char) * 4096);
+                   n = dtoa(n, left.number_value);
+                   strcpy(strn, n);
+                   free(n);
+                   strcat(strn, right.string_value);
+                   free(right.string_value);
+                   left.type = TOKEN_STRING;
+                   left.string_value = strn;
+                   lexer->string_status = true;
+                }
+            }
+        }else if(operator == TOKEN_MINUS){
+            if(left.type == TOKEN_STRING){
+               if(right.type == TOKEN_NUMBER){
+                  char *strn = (char *)malloc(sizeof(char) * (strlen(left.string_value) - ((int)right.number_value) + 1));
+                  memset(strn, '\0', sizeof(char) * (strlen(left.string_value) - ((int)right.number_value) + 1));
+                  for(int x = 0; x < (strlen(left.string_value) - (right.number_value)); x++){
+                      strn[x] = left.string_value[x];
+                  }
+                  free(left.string_value);
+                  left.string_value = NULL;
+                  left.string_value = strn;
+                  lexer->string_status = true;
+                  left.type = TOKEN_STRING;
+               }else{
+                  if(strlen(left.string_value) >= strlen(right.string_value)){
+                     bool status_rest = true;
+                     for(int x = (strlen(right.string_value) - 1), y = (strlen(left.string_value) - 1); x >= 0; x--, y--){
+                         char c0 = left.string_value[y];
+                         char c1 = right.string_value[x];
+                         if(c0 != c1){
+                            status_rest = false;
+                            break;
+                         }
+                     }
+
+                     if(status_rest){
+                        char *strn = (char *)malloc(sizeof(char) * (strlen(left.string_value) - strlen(right.string_value) + 1));
+                        memset(strn, '\0', sizeof(char) * (strlen(left.string_value) - strlen(right.string_value) + 1));
+                        for(int x = 0; x < (strlen(left.string_value) - strlen(right.string_value)); x++){
+                            strn[x] = left.string_value[x];
+                        }
+                        free(right.string_value);
+                        right.string_value = NULL;
+                        free(left.string_value);
+                        left.string_value = NULL;
+                        lexer->string_status = true;
+                        left.type = TOKEN_STRING;
+                        left.string_value = strn;
+                     }else{
+                        free(right.string_value);
+                        right.string_value = NULL;
+                        left.type = TOKEN_STRING;
+                        lexer->string_status = true;   
+                     }
+                  }else{
+                     free(right.string_value);
+                     right.string_value = NULL;
+                     left.type = TOKEN_STRING;
+                     lexer->string_status = true;
+                  }
+               }
+            }else{
+               if(right.type == TOKEN_NUMBER){
+                  left.number_value -= right.number_value;
+                  left.type = TOKEN_NUMBER;
+                  lexer->string_status = false;
+               }else{
+                  left.number_value -= strlen(right.string_value);
+                  left.type = TOKEN_NUMBER;
+                  lexer->string_status = false;
+               }
+            }
         }
     }
     return left;
@@ -335,24 +474,28 @@ Token parse_comparison(Lexer* lexer) {
             case TOKEN_LT:{
                 left.number_value = ((left.type == TOKEN_NUMBER) ? left.number_value : (left.string_value ? strlen(left.string_value) : 0)) < ((right.type == TOKEN_NUMBER) ? right.number_value : (right.string_value ? strlen(right.string_value) : 0));
                 left.type = TOKEN_NUMBER;
+                lexer->string_status = false;
                 break;
             } 
 
             case TOKEN_GT: {
                 left.number_value = ((left.type == TOKEN_NUMBER) ? left.number_value : (left.string_value ? strlen(left.string_value) : 0)) > ((right.type == TOKEN_NUMBER) ? right.number_value : (right.string_value ? strlen(right.string_value) : 0));
                 left.type = TOKEN_NUMBER;
+                lexer->string_status = false;
                 break;
             }
 
             case TOKEN_LE: {
                 left.number_value = ((left.type == TOKEN_NUMBER) ? left.number_value : (left.string_value ? strlen(left.string_value) : 0)) <= ((right.type == TOKEN_NUMBER) ? right.number_value : (right.string_value ? strlen(right.string_value) : 0));
                 left.type = TOKEN_NUMBER;
+                lexer->string_status = false;
                 break;
             }
 
             case TOKEN_GE: {
                 left.number_value = ((left.type == TOKEN_NUMBER) ? left.number_value : (left.string_value ? strlen(left.string_value) : 0)) >= ((right.type == TOKEN_NUMBER) ? right.number_value : (right.string_value ? strlen(right.string_value) : 0));
                 left.type = TOKEN_NUMBER;
+                lexer->string_status = false;
                 break;
             }
 
@@ -363,6 +506,7 @@ Token parse_comparison(Lexer* lexer) {
                     left.number_value = (left.string_value && right.string_value) ? (strcmp(left.string_value, right.string_value) == 0) : 0;
                 }
                 left.type = TOKEN_NUMBER;
+                lexer->string_status = false;
                 break;
             }
 
@@ -373,6 +517,7 @@ Token parse_comparison(Lexer* lexer) {
                     left.number_value = (left.string_value && right.string_value) ? (strcmp(left.string_value, right.string_value) != 0) : 0;
                 }
                 left.type = TOKEN_NUMBER;
+                lexer->string_status = false;
                 break;
             }
 
@@ -391,6 +536,7 @@ Token parse_logical_and(Lexer* lexer) {
         Token right = parse_comparison(lexer);
         left.number_value = ((left.type == TOKEN_NUMBER) ? left.number_value : (left.string_value ? 1 : 0)) && ((right.type == TOKEN_NUMBER) ? right.number_value : (right.string_value ? 1 : 0));
         left.type = TOKEN_NUMBER;
+        lexer->string_status = false;
     }
     return left;
 }
@@ -402,8 +548,54 @@ Token parse_logical_or(Lexer* lexer) {
         Token right = parse_logical_and(lexer);
         left.number_value = ((left.type == TOKEN_NUMBER) ? left.number_value : (left.string_value ? 1 : 0)) || ((right.type == TOKEN_NUMBER) ? right.number_value : (right.string_value ? 1 : 0));
         left.type = TOKEN_NUMBER;
+        lexer->string_status = false;
     }
     return left;
+}
+
+Token parse_xor(Lexer *lexer){
+    Token sym = parse_factor(lexer);
+    if(sym.type == TOKEN_XOR){
+       Token right = parse_factor(lexer);
+       return right;
+    }
+    return sym;
+}
+
+Token parse_shl(Lexer *lexer){
+    Token sym = parse_factor(lexer);
+    if(sym.type == TOKEN_SHL){
+       Token right = parse_factor(lexer);
+       return right;
+    }
+    return sym;
+}
+
+Token parse_shr(Lexer *lexer){
+    Token sym = parse_factor(lexer);
+    if(sym.type == TOKEN_SHR){
+       Token right = parse_factor(lexer);
+       return right;
+    }
+    return sym;
+}
+
+Token parse_and(Lexer *lexer){
+    Token sym = parse_factor(lexer);
+    if(sym.type == TOKEN_AND){
+       Token right = parse_factor(lexer);
+       return right;
+    }
+    return sym;
+}
+
+Token parse_or(Lexer *lexer){
+    Token sym = parse_factor(lexer);
+    if(sym.type == TOKEN_OR){
+       Token right = parse_factor(lexer);
+       return right;
+    }
+    return sym;
 }
 
 Token parse_tenary(Lexer* lexer) {
@@ -412,7 +604,7 @@ Token parse_tenary(Lexer* lexer) {
         get_next_token(lexer); // Consume '?'
         Token true_expr = parse_expression(lexer);
         if (lexer->current_token.type != TOKEN_COLON) {
-            fprintf(stderr, "Error: falta ':' en la expresión ternaria\n");
+            fprintf(stderr, "(0) Error: falta ':' en la expresión ternaria\n");
             exit(EXIT_FAILURE);
         }
         get_next_token(lexer); // Consume ':'
@@ -431,6 +623,48 @@ Token parse_tenary(Lexer* lexer) {
             printf("(0) Error de token.\n");
             exit(0);
         }
+    }else if(lexer->current_token.type == TOKEN_XOR){
+        Token val = parse_xor(lexer);
+        if(condition.type == TOKEN_STRING){
+           fprintf(stderr, "Error el simbolo ^ no soporta strings para operar.\n");
+           exit(0);
+        }else{
+           if(val.type == TOKEN_NUMBER){
+              long long xor = (long long)condition.number_value ^ (long long)val.number_value;
+              condition.number_value = (double)xor;
+              condition.type = TOKEN_NUMBER;
+              lexer->string_status = false;
+           }else{
+              fprintf(stderr, "Error el simbolo ^ no soporta strings para operar.\n");
+              exit(0);
+           }
+        }
+        
+    }else if(lexer->current_token.type == TOKEN_SHL){
+        // TOKEN_SHL <<
+        Token val = parse_shl(lexer);
+        printf("SHL: %lf << %lf", condition.number_value, val.number_value);
+        if(condition.type == TOKEN_STRING){
+
+        }else{
+
+        }
+        getchar();
+    }else if(lexer->current_token.type == TOKEN_SHR){
+        // TOKEN_SHR >>
+        Token val = parse_shr(lexer);
+        printf("SHR: %lf >> %lf", condition.number_value, val.number_value);
+        getchar();
+    }else if(lexer->current_token.type == TOKEN_AND){
+        // TOKEN_AND &
+        Token val = parse_and(lexer);
+        printf("AND: %lf & %lf", condition.number_value, val.number_value);
+        getchar();
+    }else if(lexer->current_token.type == TOKEN_OR){
+        // OKEN_OR |
+        Token val = parse_or(lexer);
+        printf("OR: %lf | %lf", condition.number_value, val.number_value);
+        getchar();
     }
     return condition;
 }
@@ -488,6 +722,73 @@ double my_round(double value) {
 }
 
 char *dtoa(char *s, double n) {
-    snprintf(s, MAX_NUMBER_STRING_SIZE, "%lf", n);
+    // handle special cases
+    if (isnan(n)) {
+        strcpy(s, "nan");
+    } else if (isinf(n)) {
+        strcpy(s, "inf");
+    } else if (n == 0.0) {
+        strcpy(s, "0");
+    } else {
+        int digit, m, m1;
+        char *c = s;
+        int neg = (n < 0);
+        if (neg)
+            n = -n;
+        // calculate magnitude
+        m = log10(n);
+        int useExp = (m >= 14 || (neg && m >= 9) || m <= -9);
+        if (neg)
+            *(c++) = '-';
+        // set up for scientific notation
+        if (useExp) {
+            if (m < 0)
+               m -= 1.0;
+            n = n / pow(10.0, m);
+            m1 = m;
+            m = 0;
+        }
+        if (m < 1.0) {
+            m = 0;
+        }
+        // convert the number
+        while (n > PRECISION || m >= 0) {
+            double weight = pow(10.0, m);
+            if (weight > 0 && !isinf(weight)) {
+                digit = floor(n / weight);
+                n -= (digit * weight);
+                *(c++) = '0' + digit;
+            }
+            if (m == 0 && n > 0)
+                *(c++) = '.';
+            m--;
+        }
+        if (useExp) {
+            // convert the exponent
+            int i, j;
+            *(c++) = 'e';
+            if (m1 > 0) {
+                *(c++) = '+';
+            } else {
+                *(c++) = '-';
+                m1 = -m1;
+            }
+            m = 0;
+            while (m1 > 0) {
+                *(c++) = '0' + m1 % 10;
+                m1 /= 10;
+                m++;
+            }
+            c -= m;
+            for (i = 0, j = m-1; i<j; i++, j--) {
+                // swap without temporary
+                c[i] ^= c[j];
+                c[j] ^= c[i];
+                c[i] ^= c[j];
+            }
+            c += m;
+        }
+        *(c) = '\0';
+    }
     return s;
 }
