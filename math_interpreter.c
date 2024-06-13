@@ -480,45 +480,41 @@ Token parse_term(Lexer* lexer) {
                   lexer->char_status = false;
                   left.type = TOKEN_STRING;
                }else{
-                  if(strlen(left.string_value) >= strlen(right.string_value)){
-                     bool status_rest = true;
-                     for(int x = (strlen(right.string_value) - 1), y = (strlen(left.string_value) - 1); x >= 0; x--, y--){
-                         char c0 = left.string_value[y];
-                         char c1 = right.string_value[x];
-                         if(c0 != c1){
-                            status_rest = false;
-                            break;
-                         }
-                     }
+                   char *strn = (char *)malloc(sizeof(char) * (strlen(left.string_value) + 1));
+                   memset(strn, '\0', sizeof(char) * (strlen(left.string_value) + 1));
+                   int u = 0;
+                   for(int x = 0; x < strlen(left.string_value); x++){
+                       char c = left.string_value[x];
+                       if(c == right.string_value[0]){
+                          bool inc = true;
+                          for(int l = 0, k = x; l < strlen(right.string_value); l++, k++){
+                              char p0 = right.string_value[l];
+                              char p1 = left.string_value[k];
+                              if(p0 != p1){
+                                 inc = false;
+                                 break;
+                              }
+                          }
 
-                     if(status_rest){
-                        char *strn = (char *)malloc(sizeof(char) * (strlen(left.string_value) - strlen(right.string_value) + 1));
-                        memset(strn, '\0', sizeof(char) * (strlen(left.string_value) - strlen(right.string_value) + 1));
-                        for(int x = 0; x < (strlen(left.string_value) - strlen(right.string_value)); x++){
-                            strn[x] = left.string_value[x];
-                        }
-                        free(right.string_value);
-                        right.string_value = NULL;
-                        free(left.string_value);
-                        left.string_value = NULL;
-                        lexer->string_status = true;
-                        lexer->char_status = false;
-                        left.type = TOKEN_STRING;
-                        left.string_value = strn;
-                     }else{
-                        free(right.string_value);
-                        right.string_value = NULL;
-                        left.type = TOKEN_STRING;
-                        lexer->string_status = true;   
-                        lexer->char_status = false;
-                     }
-                  }else{
-                     free(right.string_value);
-                     right.string_value = NULL;
-                     left.type = TOKEN_STRING;
-                     lexer->string_status = true;
-                     lexer->char_status = false;
-                  }
+                          if(inc){
+                             x += (strlen(right.string_value) - 1); 
+                          }else{
+                            strn[u] = c;
+                            u++;
+                          }
+                       }else{
+                          strn[u] = c;
+                          u++;
+                       }
+                   }
+                   free(right.string_value);
+                   right.string_value = NULL;
+                   free(left.string_value);
+                   left.string_value = NULL;
+                   lexer->string_status = true;
+                   lexer->char_status = false;
+                   left.type = TOKEN_STRING;
+                   left.string_value = strn;
                }
             }else if(left.type == TOKEN_CHAR){
                 if(right.type == TOKEN_NUMBER){
@@ -562,10 +558,19 @@ Token parse_term(Lexer* lexer) {
                   lexer->char_status = false;
                   lexer->char_status = false;
                }else{
-                  left.number_value -= strlen(right.string_value);
-                  left.type = TOKEN_NUMBER;
-                  lexer->string_status = false;
+                  char *strn = (char *)malloc(sizeof(char) * (strlen(right.string_value) + 1));
+                  memset(strn, '\0', sizeof(char) * (strlen(right.string_value) + 1));
+                  int u = 0;
+                  for(int x = left.number_value; x < strlen(right.string_value); x++){
+                      strn[u] = right.string_value[x];
+                      u++;
+                  }
+                  free(right.string_value);
+                  right.string_value = NULL;
+                  left.type = TOKEN_STRING;
+                  lexer->string_status = true;
                   lexer->char_status = false;
+                  left.string_value = strn;
                }
             }
         }
@@ -813,23 +818,310 @@ Token parse_tenary(Lexer* lexer) {
     }else if(lexer->current_token.type == TOKEN_SHL){
         // TOKEN_SHL <<
         Token val = parse_shl(lexer);
-        printf("SHL: %lf << %lf", condition.number_value, val.number_value);
-        getchar();
+        if(condition.type == TOKEN_STRING){
+            if(val.type == TOKEN_NUMBER){
+               //"aa" << 1 
+               long long u = (strlen(condition.string_value) + (long)val.number_value);
+               free(condition.string_value);
+               condition.string_value = NULL;
+               condition.number_value = (double)u;
+               condition.type = TOKEN_NUMBER;
+               lexer->string_status = false;
+               lexer->char_status = false;
+            }else if(val.type == TOKEN_CHAR){
+               //"aa" << 'a'
+               long long u = 0;
+               for(int x = 0; x < strlen(condition.string_value); x++){
+                   char c = condition.string_value[x];
+                   if(c == val.char_value){
+                      u++;
+                   }
+               }
+               free(condition.string_value);
+               condition.string_value = NULL;
+               lexer->string_status = false;
+               lexer->char_status = false;
+               condition.type = TOKEN_NUMBER;
+               condition.number_value = (double)u;
+            }else{
+               //"aa" << "bb"
+               long long u = 0;
+               for(int x = 0; x < strlen(condition.string_value); x++){
+                   char c = condition.string_value[x];
+                   if(c == val.string_value[0]){
+                      bool inc = true;
+                      for(int l = 0, k = x; l < strlen(val.string_value); l++, k++){
+                          char p0 = val.string_value[l];
+                          char p1 = condition.string_value[k];
+                          if(p0 != p1){
+                             inc = false;
+                             break;
+                          }
+                       }
+
+                       if(inc){
+                          x += (strlen(val.string_value) - 1); 
+                          u++;
+                       }
+                   }
+               }
+               free(val.string_value);
+               val.string_value = NULL;
+               free(condition.string_value);
+               condition.string_value = NULL;
+               lexer->string_status = false;
+               lexer->char_status = false;
+               condition.type = TOKEN_NUMBER;
+               condition.number_value = (double)u;
+            }
+        }else if(condition.type == TOKEN_CHAR){
+            if(val.type == TOKEN_NUMBER){
+               long l0 = (long)condition.char_value;
+               long l1 = (long)val.number_value;
+               long long val = (long long)(l0 << l1);
+               condition.char_value = (int)val;
+               condition.type = TOKEN_CHAR;
+               lexer->char_status = true;
+               lexer->string_status = false;
+            }else if(val.type == TOKEN_CHAR){
+               long l0 = (long)condition.char_value;
+               long l1 = (long)val.char_value;
+               long long val = (long long)(l0 << l1);
+               condition.char_value = (int)val;
+               condition.type = TOKEN_CHAR;
+               lexer->char_status = true;
+               lexer->string_status = false;
+            }else{
+               // 'a' << "aa" 
+               long long u = 0;
+               for(int x = 0; x < strlen(val.string_value); x++){
+                   char c = val.string_value[x];
+                   if(c == condition.char_value){
+                      u++;
+                   }
+               }
+               free(val.string_value);
+               val.string_value = NULL;
+               lexer->string_status = false;
+               lexer->char_status = false;
+               condition.type = TOKEN_NUMBER;
+               condition.number_value = u > 0 ? 0 : 1;
+            }
+        }else{
+            if(val.type == TOKEN_NUMBER){
+               long l0 = (long)condition.number_value;
+               long l1 = (long)val.number_value;
+               long long val = (long long)(l0 << l1);
+               condition.number_value = (double)val;
+               condition.type = TOKEN_NUMBER;
+               lexer->char_status = false;
+               lexer->string_status = false;
+            }else if(val.type == TOKEN_CHAR){
+               // 1 << 'a'
+               long l0 = (long)condition.number_value;
+               long l1 = (long)val.char_value;
+               long long val = (long long)(l0 << l1);
+               condition.number_value = (double)val;
+               condition.type = TOKEN_NUMBER;
+               lexer->char_status = false;
+               lexer->string_status = false;
+            }else{
+               //1 << "aa"
+               long long u = (strlen(val.string_value) - (long)condition.number_value);
+               free(val.string_value);
+               val.string_value = NULL;
+               condition.number_value = (double)u;
+               condition.type = TOKEN_NUMBER;
+               lexer->string_status = false;
+               lexer->char_status = false;
+            }
+        }
     }else if(lexer->current_token.type == TOKEN_SHR){
         // TOKEN_SHR >>
         Token val = parse_shr(lexer);
-        printf("SHR: %lf >> %lf", condition.number_value, val.number_value);
-        getchar();
+        if(condition.type == TOKEN_STRING){
+            if(val.type == TOKEN_NUMBER){
+              //"aa" >> 1
+              long long u = (strlen(condition.string_value) - (long)val.number_value);
+              free(condition.string_value);
+              condition.string_value = NULL;
+              condition.number_value = (double)u;
+              condition.type = TOKEN_NUMBER;
+              lexer->string_status = false;
+              lexer->char_status = false;
+            }else if(val.type == TOKEN_CHAR){
+              //"aa" >> 'a'
+              long long u = 0;
+              for(int x = 0; x < strlen(condition.string_value); x++){
+                   char c = condition.string_value[x];
+                   if(c == val.char_value){
+                      u++;
+                   }
+              }
+              free(condition.string_value);
+              condition.string_value = NULL;
+              lexer->string_status = false;
+              lexer->char_status = false;
+              condition.type = TOKEN_NUMBER;
+              condition.number_value = u > 0 ? 0 : 1;
+            }else{
+              //"aa" >> "bb"  
+              long long u = 0;
+               for(int x = 0; x < strlen(val.string_value); x++){
+                   char c = val.string_value[x];
+                   if(c == condition.string_value[0]){
+                      bool inc = true;
+                      for(int l = 0, k = x; l < strlen(condition.string_value); l++, k++){
+                          char p0 = condition.string_value[l];
+                          char p1 = val.string_value[k];
+                          if(p0 != p1){
+                             inc = false;
+                             break;
+                          }
+                       }
+
+                       if(inc){
+                          x += (strlen(condition.string_value) - 1); 
+                          u++;
+                       }
+                   }
+               }
+               free(val.string_value);
+               val.string_value = NULL;
+               free(condition.string_value);
+               condition.string_value = NULL;
+               lexer->string_status = false;
+               lexer->char_status = false;
+               condition.type = TOKEN_NUMBER;
+               condition.number_value = u > 0 ? 0 : 1;
+            }
+        }else if(condition.type == TOKEN_CHAR){
+            if(val.type == TOKEN_NUMBER){
+               //'a' >> 1
+               long l0 = (long)val.number_value;
+               long l1 = (long)condition.char_value;
+               long long val = (long long)(l0 >> l1);
+               condition.number_value = (double)val;
+               condition.type = TOKEN_NUMBER;
+               lexer->char_status = false;
+               lexer->string_status = false;
+            }else if(val.type == TOKEN_CHAR){
+               //'a' >> 'b'
+               long l0 = (long)condition.char_value;
+               long l1 = (long)val.char_value;
+               long long val = (long long)(l0 >> l1);
+               condition.char_value = (int)val;
+               condition.type = TOKEN_CHAR;
+               lexer->char_status = true;
+               lexer->string_status = false;
+            }else{
+               //'a' >> "aa"
+               long long u = 0;
+               for(int x = 0; x < strlen(val.string_value); x++){
+                   char c = val.string_value[x];
+                   if(c == condition.char_value){
+                      u++;
+                   }
+               }
+               free(val.string_value);
+               val.string_value = NULL;
+               lexer->string_status = false;
+               lexer->char_status = false;
+               condition.type = TOKEN_NUMBER;
+               condition.number_value = (double)u;
+            }
+        }else{
+            if(val.type == TOKEN_NUMBER){
+               //1 >> 2
+               long l0 = (long)condition.number_value;
+               long l1 = (long)val.number_value;
+               long long val = (long long)(l0 >> l1);
+               condition.number_value = (double)val;
+               condition.type = TOKEN_NUMBER;
+               lexer->char_status = false;
+               lexer->string_status = false;
+            }else if(val.type == TOKEN_CHAR){
+              //1 >> 'a'
+              long l0 = (long)val.char_value;
+              long l1 = (long)condition.number_value;
+              long long val = (long long)(l0 << l1);
+              condition.char_value = (int)val;
+              condition.type = TOKEN_CHAR;
+              lexer->char_status = true;
+              lexer->string_status = false;
+            }else{
+               //1 >> "aa"
+               long long u = (strlen(val.string_value) + (long)condition.number_value);
+               free(val.string_value);
+               val.string_value = NULL;
+               condition.number_value = (double)u;
+               condition.type = TOKEN_NUMBER;
+               lexer->string_status = false;
+               lexer->char_status = false;
+            }
+        }
     }else if(lexer->current_token.type == TOKEN_AND){
         // TOKEN_AND &
         Token val = parse_and(lexer);
         printf("AND: %lf & %lf", condition.number_value, val.number_value);
         getchar();
+
+        if(condition.type == TOKEN_STRING){
+            if(val.type == TOKEN_NUMBER){
+
+            }else if(val.type == TOKEN_CHAR){
+
+            }else{
+                
+            }
+        }else if(condition.type == TOKEN_CHAR){
+            if(val.type == TOKEN_NUMBER){
+
+            }else if(val.type == TOKEN_CHAR){
+
+            }else{
+                
+            }
+        }else{
+            if(val.type == TOKEN_NUMBER){
+
+            }else if(val.type == TOKEN_CHAR){
+
+            }else{
+                
+            }
+        }
     }else if(lexer->current_token.type == TOKEN_OR){
-        // OKEN_OR |
+        // TOKEN_OR |
         Token val = parse_or(lexer);
         printf("OR: %lf | %lf", condition.number_value, val.number_value);
         getchar();
+
+        if(condition.type == TOKEN_STRING){
+            if(val.type == TOKEN_NUMBER){
+
+            }else if(val.type == TOKEN_CHAR){
+
+            }else{
+                
+            }
+        }else if(condition.type == TOKEN_CHAR){
+            if(val.type == TOKEN_NUMBER){
+
+            }else if(val.type == TOKEN_CHAR){
+
+            }else{
+                
+            }
+        }else{
+            if(val.type == TOKEN_NUMBER){
+
+            }else if(val.type == TOKEN_CHAR){
+
+            }else{
+                
+            }
+        }
     }
     return condition;
 }
