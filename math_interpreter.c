@@ -64,8 +64,6 @@ Token get_next_token(Lexer* lexer);
 Token get_number_token(Lexer* lexer);
 Token get_string_token(Lexer* lexer);
 
-void advance(Lexer* lexer);
-Token peek(Lexer* lexer);
 Token parse_expression(Lexer* lexer);
 Token parse_term(Lexer* lexer);
 Token parse_factor(Lexer* lexer);
