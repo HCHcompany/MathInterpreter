@@ -722,406 +722,633 @@ Token parse_or(Lexer *lexer){
     return sym;
 }
 
+Token parse_xssao(Lexer *lexer){
+
+}
+
 Token parse_tenary(Lexer* lexer) {
     Token condition = parse_logical_or(lexer);
-    if (lexer->current_token.type == TOKEN_QUESTION) {
-        get_next_token(lexer); // Consume '?'
-        Token true_expr = parse_expression(lexer);
-        if (lexer->current_token.type != TOKEN_COLON) {
-            fprintf(stderr, "(0) Error: falta ':' en la expresión ternaria\n");
-            exit(EXIT_FAILURE);
-        }
-
-        get_next_token(lexer); // Consume ':'
-        Token false_expr = parse_expression(lexer);
-        if(condition.type == TOKEN_STRING){
-           condition = condition.string_value ? true_expr : false_expr;
-           if(condition.type == TOKEN_STRING){
-              lexer->string_status = true;
-              lexer->char_status = false;
-           }else if(condition.type == TOKEN_CHAR){
-              lexer->string_status = false;
-              lexer->char_status = true;
-           }else{
-              lexer->string_status = false;
-              lexer->char_status = false;
-           }
-        }else if(condition.type == TOKEN_NUMBER){
-           condition = condition.number_value ? true_expr : false_expr;
-           if(condition.type == TOKEN_STRING){
-              lexer->string_status = true;
-              lexer->char_status = false;
-           }else if(condition.type == TOKEN_CHAR){
-              lexer->string_status = false;
-              lexer->char_status = true;
-           }else{
-              lexer->string_status = false;
-              lexer->char_status = false;
-           }
-        }else if(condition.type == TOKEN_CHAR){
-           condition = ((int)condition.char_value) ? true_expr : false_expr;
-           if(condition.type == TOKEN_STRING){
-              lexer->string_status = true;
-              lexer->char_status = false;
-           }else if(condition.type == TOKEN_CHAR){
-              lexer->string_status = false;
-              lexer->char_status = true;
-           }else{
-              lexer->string_status = false;
-              lexer->char_status = false;
-           }
-        }else{
-            printf("(0) Error la condicion es invalida.\n");
-            exit(0);
-        }
-    }else if(lexer->current_token.type == TOKEN_XOR){
-        Token val = parse_xor(lexer);
-        if(condition.type == TOKEN_STRING){
-           fprintf(stderr, "Error el simbolo ^ no soporta strings para operar.\n");
-           exit(0);
-        }else if(condition.type == TOKEN_CHAR){
-           if(val.type == TOKEN_NUMBER){
-              long long xor = (long long)condition.char_value ^ (long long)val.number_value;
-              condition.char_value = (int)xor;
-              condition.type = TOKEN_CHAR;
-              lexer->string_status = false;
-              lexer->char_status = true;
-           }else if(val.type == TOKEN_CHAR){
-              long long xor = (long long)condition.char_value ^ (long long)val.char_value;
-              condition.char_value = (int)xor;
-              condition.type = TOKEN_CHAR;
-              lexer->string_status = false;
-              lexer->char_status = true;
-           }else{
-              fprintf(stderr, "Error el simbolo ^ no soporta strings para operar.\n");
-              exit(0);
-           }
-        }else{
-           if(val.type == TOKEN_NUMBER){
-              long long xor = (long long)condition.number_value ^ (long long)val.number_value;
-              condition.number_value = (double)xor;
-              condition.type = TOKEN_NUMBER;
-              lexer->string_status = false;
-              lexer->char_status = false;
-           }else if(val.type == TOKEN_CHAR){
-              long long xor = (long long)condition.number_value ^ (long long)val.char_value;
-              condition.number_value = (double)xor;
-              condition.type = TOKEN_NUMBER;
-              lexer->string_status = false;
-              lexer->char_status = false;
-           }else{
-              fprintf(stderr, "Error el simbolo ^ no soporta strings para operar.\n");
-              exit(0);
-           }
-        }
-        
-    }else if(lexer->current_token.type == TOKEN_SHL){
-        // TOKEN_SHL <<
-        Token val = parse_shl(lexer);
-        if(condition.type == TOKEN_STRING){
-            if(val.type == TOKEN_NUMBER){
-               //"aa" << 1 
-               long long u = (strlen(condition.string_value) + (long)val.number_value);
-               free(condition.string_value);
-               condition.string_value = NULL;
-               condition.number_value = (double)u;
-               condition.type = TOKEN_NUMBER;
-               lexer->string_status = false;
-               lexer->char_status = false;
-            }else if(val.type == TOKEN_CHAR){
-               //"aa" << 'a'
-               long long u = 0;
-               for(int x = 0; x < strlen(condition.string_value); x++){
-                   char c = condition.string_value[x];
-                   if(c == val.char_value){
-                      u++;
-                   }
-               }
-               free(condition.string_value);
-               condition.string_value = NULL;
-               lexer->string_status = false;
-               lexer->char_status = false;
-               condition.type = TOKEN_NUMBER;
-               condition.number_value = (double)u;
-            }else{
-               //"aa" << "bb"
-               long long u = 0;
-               for(int x = 0; x < strlen(condition.string_value); x++){
-                   char c = condition.string_value[x];
-                   if(c == val.string_value[0]){
-                      bool inc = true;
-                      for(int l = 0, k = x; l < strlen(val.string_value); l++, k++){
-                          char p0 = val.string_value[l];
-                          char p1 = condition.string_value[k];
-                          if(p0 != p1){
-                             inc = false;
-                             break;
-                          }
-                       }
-
-                       if(inc){
-                          x += (strlen(val.string_value) - 1); 
-                          u++;
-                       }
-                   }
-               }
-               free(val.string_value);
-               val.string_value = NULL;
-               free(condition.string_value);
-               condition.string_value = NULL;
-               lexer->string_status = false;
-               lexer->char_status = false;
-               condition.type = TOKEN_NUMBER;
-               condition.number_value = (double)u;
-            }
-        }else if(condition.type == TOKEN_CHAR){
-            if(val.type == TOKEN_NUMBER){
-               long l0 = (long)condition.char_value;
-               long l1 = (long)val.number_value;
-               long long val = (long long)(l0 << l1);
-               condition.char_value = (int)val;
-               condition.type = TOKEN_CHAR;
-               lexer->char_status = true;
-               lexer->string_status = false;
-            }else if(val.type == TOKEN_CHAR){
-               long l0 = (long)condition.char_value;
-               long l1 = (long)val.char_value;
-               long long val = (long long)(l0 << l1);
-               condition.char_value = (int)val;
-               condition.type = TOKEN_CHAR;
-               lexer->char_status = true;
-               lexer->string_status = false;
-            }else{
-               // 'a' << "aa" 
-               long long u = 0;
-               for(int x = 0; x < strlen(val.string_value); x++){
-                   char c = val.string_value[x];
-                   if(c == condition.char_value){
-                      u++;
-                   }
-               }
-               free(val.string_value);
-               val.string_value = NULL;
-               lexer->string_status = false;
-               lexer->char_status = false;
-               condition.type = TOKEN_NUMBER;
-               condition.number_value = u > 0 ? 0 : 1;
-            }
-        }else{
-            if(val.type == TOKEN_NUMBER){
-               long l0 = (long)condition.number_value;
-               long l1 = (long)val.number_value;
-               long long val = (long long)(l0 << l1);
-               condition.number_value = (double)val;
-               condition.type = TOKEN_NUMBER;
-               lexer->char_status = false;
-               lexer->string_status = false;
-            }else if(val.type == TOKEN_CHAR){
-               // 1 << 'a'
-               long l0 = (long)condition.number_value;
-               long l1 = (long)val.char_value;
-               long long val = (long long)(l0 << l1);
-               condition.number_value = (double)val;
-               condition.type = TOKEN_NUMBER;
-               lexer->char_status = false;
-               lexer->string_status = false;
-            }else{
-               //1 << "aa"
-               long long u = (strlen(val.string_value) - (long)condition.number_value);
-               free(val.string_value);
-               val.string_value = NULL;
-               condition.number_value = (double)u;
-               condition.type = TOKEN_NUMBER;
-               lexer->string_status = false;
-               lexer->char_status = false;
-            }
-        }
-    }else if(lexer->current_token.type == TOKEN_SHR){
-        // TOKEN_SHR >>
-        Token val = parse_shr(lexer);
-        if(condition.type == TOKEN_STRING){
-            if(val.type == TOKEN_NUMBER){
-              //"aa" >> 1
-              long long u = (strlen(condition.string_value) - (long)val.number_value);
-              free(condition.string_value);
-              condition.string_value = NULL;
-              condition.number_value = (double)u;
-              condition.type = TOKEN_NUMBER;
-              lexer->string_status = false;
-              lexer->char_status = false;
-            }else if(val.type == TOKEN_CHAR){
-              //"aa" >> 'a'
-              long long u = 0;
-              for(int x = 0; x < strlen(condition.string_value); x++){
-                   char c = condition.string_value[x];
-                   if(c == val.char_value){
-                      u++;
-                   }
+    //XOR, SHR, SHL, AND, OR
+    while(lexer->current_token.type == TOKEN_QUESTION || lexer->current_token.type == TOKEN_XOR || lexer->current_token.type == TOKEN_SHL || 
+          lexer->current_token.type == TOKEN_SHR || lexer->current_token.type == TOKEN_AND || lexer->current_token.type == TOKEN_OR){
+          if (lexer->current_token.type == TOKEN_QUESTION) {
+              get_next_token(lexer); // Consume '?'
+              Token true_expr = parse_expression(lexer);
+              if (lexer->current_token.type != TOKEN_COLON) {
+                  fprintf(stderr, "(0) Error: falta ':' en la expresión ternaria\n");
+                  exit(EXIT_FAILURE);
               }
-              free(condition.string_value);
-              condition.string_value = NULL;
-              lexer->string_status = false;
-              lexer->char_status = false;
-              condition.type = TOKEN_NUMBER;
-              condition.number_value = u > 0 ? 0 : 1;
-            }else{
-              //"aa" >> "bb"  
-              long long u = 0;
-               for(int x = 0; x < strlen(val.string_value); x++){
-                   char c = val.string_value[x];
-                   if(c == condition.string_value[0]){
-                      bool inc = true;
-                      for(int l = 0, k = x; l < strlen(condition.string_value); l++, k++){
-                          char p0 = condition.string_value[l];
-                          char p1 = val.string_value[k];
-                          if(p0 != p1){
-                             inc = false;
-                             break;
-                          }
-                       }
+      
+              get_next_token(lexer); // Consume ':'
+              Token false_expr = parse_expression(lexer);
+              if(condition.type == TOKEN_STRING){
+                 condition = condition.string_value ? true_expr : false_expr;
+                 if(condition.type == TOKEN_STRING){
+                    lexer->string_status = true;
+                    lexer->char_status = false;
+                 }else if(condition.type == TOKEN_CHAR){
+                    lexer->string_status = false;
+                    lexer->char_status = true;
+                 }else{
+                    lexer->string_status = false;
+                    lexer->char_status = false;
+                 }
+              }else if(condition.type == TOKEN_NUMBER){
+                 condition = condition.number_value ? true_expr : false_expr;
+                 if(condition.type == TOKEN_STRING){
+                    lexer->string_status = true;
+                    lexer->char_status = false;
+                 }else if(condition.type == TOKEN_CHAR){
+                    lexer->string_status = false;
+                    lexer->char_status = true;
+                 }else{
+                    lexer->string_status = false;
+                    lexer->char_status = false;
+                 }
+              }else if(condition.type == TOKEN_CHAR){
+                 condition = ((int)condition.char_value) ? true_expr : false_expr;
+                 if(condition.type == TOKEN_STRING){
+                    lexer->string_status = true;
+                    lexer->char_status = false;
+                 }else if(condition.type == TOKEN_CHAR){
+                    lexer->string_status = false;
+                    lexer->char_status = true;
+                 }else{
+                    lexer->string_status = false;
+                    lexer->char_status = false;
+                 }
+              }else{
+                  printf("(0) Error la condicion es invalida.\n");
+                  exit(0);
+              }
+          }else if(lexer->current_token.type == TOKEN_XOR){
+              Token val = parse_xor(lexer);
+              if(condition.type == TOKEN_STRING){
+                 fprintf(stderr, "Error el simbolo ^ no soporta strings para operar.\n");
+                 exit(0);
+              }else if(condition.type == TOKEN_CHAR){
+                 if(val.type == TOKEN_NUMBER){
+                    long long xor = (long long)condition.char_value ^ (long long)val.number_value;
+                    condition.char_value = (int)xor;
+                    condition.type = TOKEN_CHAR;
+                    lexer->string_status = false;
+                    lexer->char_status = true;
+                 }else if(val.type == TOKEN_CHAR){
+                    long long xor = (long long)condition.char_value ^ (long long)val.char_value;
+                    condition.char_value = (int)xor;
+                    condition.type = TOKEN_CHAR;
+                    lexer->string_status = false;
+                    lexer->char_status = true;
+                 }else{
+                    fprintf(stderr, "Error el simbolo ^ no soporta strings para operar.\n");
+                    exit(0);
+                 }
+              }else{
+                 if(val.type == TOKEN_NUMBER){
+                    long long xor = (long long)condition.number_value ^ (long long)val.number_value;
+                    condition.number_value = (double)xor;
+                    condition.type = TOKEN_NUMBER;
+                    lexer->string_status = false;
+                    lexer->char_status = false;
+                 }else if(val.type == TOKEN_CHAR){
+                    long long xor = (long long)condition.number_value ^ (long long)val.char_value;
+                    condition.number_value = (double)xor;
+                    condition.type = TOKEN_NUMBER;
+                    lexer->string_status = false;
+                    lexer->char_status = false;
+                 }else{
+                    fprintf(stderr, "Error el simbolo ^ no soporta strings para operar.\n");
+                    exit(0);
+                 }
+              }
+              
+          }else if(lexer->current_token.type == TOKEN_SHL){
+              // TOKEN_SHL <<
+              Token val = parse_shl(lexer);
+              if(condition.type == TOKEN_STRING){
+                  if(val.type == TOKEN_NUMBER){
+                     //"aa" << 1 
+                     long long u = (strlen(condition.string_value) + (long)val.number_value);
+                     free(condition.string_value);
+                     condition.string_value = NULL;
+                     condition.number_value = (double)u;
+                     condition.type = TOKEN_NUMBER;
+                     lexer->string_status = false;
+                     lexer->char_status = false;
+                  }else if(val.type == TOKEN_CHAR){
+                     //"aa" << 'a'
+                     long long u = 0;
+                     for(int x = 0; x < strlen(condition.string_value); x++){
+                         char c = condition.string_value[x];
+                         if(c == val.char_value){
+                            u++;
+                         }
+                     }
+                     free(condition.string_value);
+                     condition.string_value = NULL;
+                     lexer->string_status = false;
+                     lexer->char_status = false;
+                     condition.type = TOKEN_NUMBER;
+                     condition.number_value = (double)u;
+                  }else{
+                     //"aa" << "bb"
+                     long long u = 0;
+                     for(int x = 0; x < strlen(condition.string_value); x++){
+                         char c = condition.string_value[x];
+                         if(c == val.string_value[0]){
+                            bool inc = true;
+                            for(int l = 0, k = x; l < strlen(val.string_value); l++, k++){
+                                char p0 = val.string_value[l];
+                                char p1 = condition.string_value[k];
+                                if(p0 != p1){
+                                   inc = false;
+                                   break;
+                                }
+                             }
+      
+                             if(inc){
+                                x += (strlen(val.string_value) - 1); 
+                                u++;
+                             }
+                         }
+                     }
+                     free(val.string_value);
+                     val.string_value = NULL;
+                     free(condition.string_value);
+                     condition.string_value = NULL;
+                     lexer->string_status = false;
+                     lexer->char_status = false;
+                     condition.type = TOKEN_NUMBER;
+                     condition.number_value = (double)u;
+                  }
+              }else if(condition.type == TOKEN_CHAR){
+                  if(val.type == TOKEN_NUMBER){
+                     long l0 = (long)condition.char_value;
+                     long l1 = (long)val.number_value;
+                     long long val = (long long)(l0 << l1);
+                     condition.char_value = (int)val;
+                     condition.type = TOKEN_CHAR;
+                     lexer->char_status = true;
+                     lexer->string_status = false;
+                  }else if(val.type == TOKEN_CHAR){
+                     long l0 = (long)condition.char_value;
+                     long l1 = (long)val.char_value;
+                     long long val = (long long)(l0 << l1);
+                     condition.char_value = (int)val;
+                     condition.type = TOKEN_CHAR;
+                     lexer->char_status = true;
+                     lexer->string_status = false;
+                  }else{
+                     // 'a' << "aa" 
+                     long long u = 0;
+                     for(int x = 0; x < strlen(val.string_value); x++){
+                         char c = val.string_value[x];
+                         if(c == condition.char_value){
+                            u++;
+                         }
+                     }
+                     free(val.string_value);
+                     val.string_value = NULL;
+                     lexer->string_status = false;
+                     lexer->char_status = false;
+                     condition.type = TOKEN_NUMBER;
+                     condition.number_value = u > 0 ? 0 : 1;
+                  }
+              }else{
+                  if(val.type == TOKEN_NUMBER){
+                     long l0 = (long)condition.number_value;
+                     long l1 = (long)val.number_value;
+                     long long val = (long long)(l0 << l1);
+                     condition.number_value = (double)val;
+                     condition.type = TOKEN_NUMBER;
+                     lexer->char_status = false;
+                     lexer->string_status = false;
+                  }else if(val.type == TOKEN_CHAR){
+                     // 1 << 'a'
+                     long l0 = (long)condition.number_value;
+                     long l1 = (long)val.char_value;
+                     long long val = (long long)(l0 << l1);
+                     condition.number_value = (double)val;
+                     condition.type = TOKEN_NUMBER;
+                     lexer->char_status = false;
+                     lexer->string_status = false;
+                  }else{
+                     //1 << "aa"
+                     long long u = (strlen(val.string_value) - (long)condition.number_value);
+                     free(val.string_value);
+                     val.string_value = NULL;
+                     condition.number_value = (double)u;
+                     condition.type = TOKEN_NUMBER;
+                     lexer->string_status = false;
+                     lexer->char_status = false;
+                  }
+              }
+          }else if(lexer->current_token.type == TOKEN_SHR){
+              // TOKEN_SHR >>
+              Token val = parse_shr(lexer);
+              if(condition.type == TOKEN_STRING){
+                  if(val.type == TOKEN_NUMBER){
+                    //"aa" >> 1
+                    long long u = (strlen(condition.string_value) - (long)val.number_value);
+                    free(condition.string_value);
+                    condition.string_value = NULL;
+                    condition.number_value = (double)u;
+                    condition.type = TOKEN_NUMBER;
+                    lexer->string_status = false;
+                    lexer->char_status = false;
+                  }else if(val.type == TOKEN_CHAR){
+                    //"aa" >> 'a'
+                    long long u = 0;
+                    for(int x = 0; x < strlen(condition.string_value); x++){
+                         char c = condition.string_value[x];
+                         if(c == val.char_value){
+                            u++;
+                         }
+                    }
+                    free(condition.string_value);
+                    condition.string_value = NULL;
+                    lexer->string_status = false;
+                    lexer->char_status = false;
+                    condition.type = TOKEN_NUMBER;
+                    condition.number_value = u > 0 ? 0 : 1;
+                  }else{
+                    //"aa" >> "bb"  
+                    long long u = 0;
+                     for(int x = 0; x < strlen(val.string_value); x++){
+                         char c = val.string_value[x];
+                         if(c == condition.string_value[0]){
+                            bool inc = true;
+                            for(int l = 0, k = x; l < strlen(condition.string_value); l++, k++){
+                                char p0 = condition.string_value[l];
+                                char p1 = val.string_value[k];
+                                if(p0 != p1){
+                                   inc = false;
+                                   break;
+                                }
+                             }
+      
+                             if(inc){
+                                x += (strlen(condition.string_value) - 1); 
+                                u++;
+                             }
+                         }
+                     }
+                     free(val.string_value);
+                     val.string_value = NULL;
+                     free(condition.string_value);
+                     condition.string_value = NULL;
+                     lexer->string_status = false;
+                     lexer->char_status = false;
+                     condition.type = TOKEN_NUMBER;
+                     condition.number_value = u > 0 ? 0 : 1;
+                  }
+              }else if(condition.type == TOKEN_CHAR){
+                  if(val.type == TOKEN_NUMBER){
+                     //'a' >> 1
+                     long l0 = (long)val.number_value;
+                     long l1 = (long)condition.char_value;
+                     long long val = (long long)(l0 >> l1);
+                     condition.number_value = (double)val;
+                     condition.type = TOKEN_NUMBER;
+                     lexer->char_status = false;
+                     lexer->string_status = false;
+                  }else if(val.type == TOKEN_CHAR){
+                     //'a' >> 'b'
+                     long l0 = (long)condition.char_value;
+                     long l1 = (long)val.char_value;
+                     long long val = (long long)(l0 >> l1);
+                     condition.char_value = (int)val;
+                     condition.type = TOKEN_CHAR;
+                     lexer->char_status = true;
+                     lexer->string_status = false;
+                  }else{
+                     //'a' >> "aa"
+                     long long u = 0;
+                     for(int x = 0; x < strlen(val.string_value); x++){
+                         char c = val.string_value[x];
+                         if(c == condition.char_value){
+                            u++;
+                         }
+                     }
+                     free(val.string_value);
+                     val.string_value = NULL;
+                     lexer->string_status = false;
+                     lexer->char_status = false;
+                     condition.type = TOKEN_NUMBER;
+                     condition.number_value = (double)u;
+                  }
+              }else{
+                  if(val.type == TOKEN_NUMBER){
+                     //1 >> 2
+                     long l0 = (long)condition.number_value;
+                     long l1 = (long)val.number_value;
+                     long long val = (long long)(l0 >> l1);
+                     condition.number_value = (double)val;
+                     condition.type = TOKEN_NUMBER;
+                     lexer->char_status = false;
+                     lexer->string_status = false;
+                  }else if(val.type == TOKEN_CHAR){
+                    //1 >> 'a'
+                    long l0 = (long)val.char_value;
+                    long l1 = (long)condition.number_value;
+                    long long val = (long long)(l0 << l1);
+                    condition.char_value = (int)val;
+                    condition.type = TOKEN_CHAR;
+                    lexer->char_status = true;
+                    lexer->string_status = false;
+                  }else{
+                     //1 >> "aa"
+                     long long u = (strlen(val.string_value) + (long)condition.number_value);
+                     free(val.string_value);
+                     val.string_value = NULL;
+                     condition.number_value = (double)u;
+                     condition.type = TOKEN_NUMBER;
+                     lexer->string_status = false;
+                     lexer->char_status = false;
+                  }
+              }
+          }else if(lexer->current_token.type == TOKEN_AND){
+              // TOKEN_AND &
+              Token val = parse_and(lexer);
+              printf("AND: %lf & %lf", condition.number_value, val.number_value);
+              getchar();
+      
+              if(condition.type == TOKEN_STRING){
+                  if(val.type == TOKEN_NUMBER){
+                     if(strlen(condition.string_value) > (int)val.number_value || strlen(condition.string_value) == (int)val.number_value){
+                        char *strn = (char *)malloc(sizeof(char) * (strlen(condition.string_value) + 1));
+                        memset(strn, '\0', sizeof(char) * (strlen(condition.string_value) + 1));
+                        int u0 = 0;
+                        for(int x = 0; x < (strlen(condition.string_value) - (int)val.number_value); x++){
+                            strn[x] = condition.string_value[x];
+                            u0++;
+                        }
+                        
+                        int u1 = u0;
+                        for(int y = (strlen(condition.string_value) - 1); y >= u0; y--){
+                            strn[u1] = condition.string_value[y];
+                            u1++;
+                        }
+                        free(condition.string_value);
+                        condition.string_value = NULL;
+                        condition.string_value = strn;
+                        condition.type = TOKEN_STRING;
+                        lexer->char_status = false;
+                        lexer->string_status = true;
+                     }
+                  }else if(val.type == TOKEN_CHAR){
+      
+                  }else{
+                     char *alp = (char *)malloc(sizeof(char) * 4096);
+                     char *ocl = (char *)malloc(sizeof(char) * strlen(val.string_value) + 2);
+                     memset(ocl, '\0', sizeof(char) * strlen(val.string_value) + 2);
+                     memset(alp, '\0', sizeof(char) * 4096);
+                     bool isp = false;
+                     long u0 = 0, u1 = 0;
+                     for(int j = 0; j < strlen(val.string_value); j++){
+                         char n = val.string_value[j];
+                         if(isp){
+                            alp[u1] = n;
+                            u1++;
+                         }else{
+                            if(n != '$'){
+                               ocl[u0] = n;
+                               u0++;
+                            }else{
+                               isp = true;
+                            }
+                         }
+                     }
+                     int code = atoi(alp);
+                     char *strn = (char *)malloc(sizeof(char) * (strlen(condition.string_value) + strlen(val.string_value) + code + 2));
+                     memset(strn, '\0', sizeof(char) * (strlen(condition.string_value) + strlen(val.string_value) + code + 2));
+                     strcpy(strn, condition.string_value);
+                     int k = strlen(condition.string_value) + code;
 
-                       if(inc){
-                          x += (strlen(condition.string_value) - 1); 
-                          u++;
-                       }
-                   }
-               }
-               free(val.string_value);
-               val.string_value = NULL;
-               free(condition.string_value);
-               condition.string_value = NULL;
-               lexer->string_status = false;
-               lexer->char_status = false;
-               condition.type = TOKEN_NUMBER;
-               condition.number_value = u > 0 ? 0 : 1;
-            }
-        }else if(condition.type == TOKEN_CHAR){
-            if(val.type == TOKEN_NUMBER){
-               //'a' >> 1
-               long l0 = (long)val.number_value;
-               long l1 = (long)condition.char_value;
-               long long val = (long long)(l0 >> l1);
-               condition.number_value = (double)val;
-               condition.type = TOKEN_NUMBER;
-               lexer->char_status = false;
-               lexer->string_status = false;
-            }else if(val.type == TOKEN_CHAR){
-               //'a' >> 'b'
-               long l0 = (long)condition.char_value;
-               long l1 = (long)val.char_value;
-               long long val = (long long)(l0 >> l1);
-               condition.char_value = (int)val;
-               condition.type = TOKEN_CHAR;
-               lexer->char_status = true;
-               lexer->string_status = false;
-            }else{
-               //'a' >> "aa"
-               long long u = 0;
-               for(int x = 0; x < strlen(val.string_value); x++){
-                   char c = val.string_value[x];
-                   if(c == condition.char_value){
-                      u++;
-                   }
-               }
-               free(val.string_value);
-               val.string_value = NULL;
-               lexer->string_status = false;
-               lexer->char_status = false;
-               condition.type = TOKEN_NUMBER;
-               condition.number_value = (double)u;
-            }
-        }else{
-            if(val.type == TOKEN_NUMBER){
-               //1 >> 2
-               long l0 = (long)condition.number_value;
-               long l1 = (long)val.number_value;
-               long long val = (long long)(l0 >> l1);
-               condition.number_value = (double)val;
-               condition.type = TOKEN_NUMBER;
-               lexer->char_status = false;
-               lexer->string_status = false;
-            }else if(val.type == TOKEN_CHAR){
-              //1 >> 'a'
-              long l0 = (long)val.char_value;
-              long l1 = (long)condition.number_value;
-              long long val = (long long)(l0 << l1);
-              condition.char_value = (int)val;
-              condition.type = TOKEN_CHAR;
-              lexer->char_status = true;
-              lexer->string_status = false;
-            }else{
-               //1 >> "aa"
-               long long u = (strlen(val.string_value) + (long)condition.number_value);
-               free(val.string_value);
-               val.string_value = NULL;
-               condition.number_value = (double)u;
-               condition.type = TOKEN_NUMBER;
-               lexer->string_status = false;
-               lexer->char_status = false;
-            }
-        }
-    }else if(lexer->current_token.type == TOKEN_AND){
-        // TOKEN_AND &
-        Token val = parse_and(lexer);
-        printf("AND: %lf & %lf", condition.number_value, val.number_value);
-        getchar();
-
-        if(condition.type == TOKEN_STRING){
-            if(val.type == TOKEN_NUMBER){
-
-            }else if(val.type == TOKEN_CHAR){
-
-            }else{
-                
-            }
-        }else if(condition.type == TOKEN_CHAR){
-            if(val.type == TOKEN_NUMBER){
-
-            }else if(val.type == TOKEN_CHAR){
-
-            }else{
-                
-            }
-        }else{
-            if(val.type == TOKEN_NUMBER){
-
-            }else if(val.type == TOKEN_CHAR){
-
-            }else{
-                
-            }
-        }
-    }else if(lexer->current_token.type == TOKEN_OR){
-        // TOKEN_OR |
-        Token val = parse_or(lexer);
-        printf("OR: %lf | %lf", condition.number_value, val.number_value);
-        getchar();
-
-        if(condition.type == TOKEN_STRING){
-            if(val.type == TOKEN_NUMBER){
-
-            }else if(val.type == TOKEN_CHAR){
-
-            }else{
-                
-            }
-        }else if(condition.type == TOKEN_CHAR){
-            if(val.type == TOKEN_NUMBER){
-
-            }else if(val.type == TOKEN_CHAR){
-
-            }else{
-                
-            }
-        }else{
-            if(val.type == TOKEN_NUMBER){
-
-            }else if(val.type == TOKEN_CHAR){
-
-            }else{
-                
-            }
-        }
+                     for(int x = 0; x < strlen(ocl); x++){
+                         strn[k] = ocl[x];
+                         k++;
+                     }
+                     strn[k] = '\0';
+                     free(condition.string_value);
+                     condition.string_value = NULL;
+                     free(val.string_value);
+                     val.string_value = NULL;
+                     condition.string_value = strn;
+                     condition.type = TOKEN_STRING;
+                     lexer->char_status = false;
+                     lexer->string_status = true;
+                  }
+              }else if(condition.type == TOKEN_CHAR){
+                  if(val.type == TOKEN_NUMBER){
+                     long long i = ((long)condition.char_value & (long)val.number_value);
+                     condition.char_value = (char)i;
+                     condition.char_value = true;
+                     condition.string_value = false;
+                     condition.type = TOKEN_CHAR;
+                  }else if(val.type == TOKEN_CHAR){
+                     long long i = ((long)condition.char_value & (long)val.char_value);
+                     condition.char_value = (char)i;
+                     condition.char_value = true;
+                     condition.string_value = false;
+                     condition.type = TOKEN_CHAR;
+                  }else{
+                      
+                  }
+              }else{
+                  if(val.type == TOKEN_NUMBER){
+                     long long i = ((long)condition.number_value & (long)val.number_value);
+                     condition.number_value = (double)i;
+                     condition.char_value = false;
+                     condition.string_value = false;
+                     condition.type = TOKEN_NUMBER;
+                  }else if(val.type == TOKEN_CHAR){
+                     long long i = ((long)condition.number_value & (long)val.char_value);
+                     condition.number_value = (double)i;
+                     condition.char_value = false;
+                     condition.string_value = false;
+                     condition.type = TOKEN_NUMBER;
+                  }else{
+                     if(strlen(val.string_value) > (int)condition.number_value){
+                        char *strn = (char *)malloc(sizeof(char) * (strlen(val.string_value) + 1));
+                        memset(strn, '\0', sizeof(char) * (strlen(val.string_value) + 1));
+                        int u0 = 0;
+                        for(int x = (int)condition.number_value - 1; x >= 0 ; x--){
+                            strn[u0] = val.string_value[x];
+                            u0++;
+                        }
+                        
+                        int u1 = u0;
+                        for(int y = u0; y < strlen(val.string_value); y++){
+                            strn[u1] = val.string_value[y];
+                            u1++;
+                        }
+                        free(val.string_value);
+                        val.string_value = NULL;
+                        condition.string_value = strn;
+                        condition.type = TOKEN_STRING;
+                        lexer->char_status = false;
+                        lexer->string_status = true;
+                     }
+                  }
+              }
+          }else if(lexer->current_token.type == TOKEN_OR){
+              // TOKEN_OR |
+              Token val = parse_or(lexer);
+              printf("OR: %lf | %lf", condition.number_value, val.number_value);
+              getchar();
+      
+              if(condition.type == TOKEN_STRING){
+                  if(val.type == TOKEN_NUMBER){
+                     char *strn = (char *)malloc(sizeof(char) * 2);
+                     memset(strn, '\0', sizeof(char) * 2);
+                     long a = 0;
+                     if((long)val.number_value > 0){
+                         if(condition.string_value[strlen(condition.string_value) + (int)val.number_value] != '\0'){
+                            for(int x = (strlen(condition.string_value) + (int)val.number_value); ; x++){
+                                char c0 = condition.string_value[x];
+                                if(c0 != '\0'){
+                                   char *tmp = (char *)malloc(sizeof(char) * strlen(strn) + 2);
+                                   memset(tmp, '\0', sizeof(char) * strlen(strn) + 2);
+                                   strcpy(tmp, strn);
+                                   tmp[strlen(tmp)] = c0;
+                                   free(strn);
+                                   strn = tmp;
+                                }else{
+                                    break;
+                                }
+                            }
+                            free(condition.string_value);
+                            condition.string_value = strn;
+                            condition.type = TOKEN_STRING;
+                            lexer->char_status = false;
+                            lexer->string_status = true;      
+                         }else{
+                            free(strn);
+                         }
+                     }else{
+                        free(strn);
+                     }
+                  }else if(val.type == TOKEN_CHAR){
+      
+                  }else{
+                     char *replace = (char *)malloc(sizeof(char) * strlen(val.string_value));
+                     memset(replace, '\0', sizeof(char) * strlen(val.string_value));
+                     char *of = (char *)malloc(sizeof(char) * strlen(val.string_value));
+                     memset(of, '\0', sizeof(char) * strlen(val.string_value));
+                     bool isdetect = false;
+                     int u = 0, k = 0;
+                     for(int x = 0; x < strlen(val.string_value); x++){
+                         char c0 = val.string_value[x];
+                         if(isdetect){
+                            of[k] = c0;
+                            k++;
+                         }else{
+                            if(c0 != ':'){
+                               replace[u] = c0;
+                               u++;
+                            }else{
+                               isdetect = true;
+                            }
+                         }
+                     }
+      
+                     long words = 0;
+                     for(int y = 0; y < strlen(condition.string_value); y++){
+                         char c0 = condition.string_value[y];
+                         if(c0 == replace[0]){
+                            bool isn = true;
+                            for(int l = 0, o = y; l < strlen(replace); l++, o++){
+                                char p0 = replace[l];
+                                char p1 = condition.string_value[o];
+                                if(p0 != p1){
+                                   isn = false;
+                                   break;
+                                }
+                            }
+      
+                            if(isn){
+                               y += (strlen(replace) - 1);
+                               words++;
+                            }
+                         }
+                     }
+      
+                     char *strn = (char *)malloc(sizeof(char) * (strlen(condition.string_value) + ((strlen(replace) > strlen(of) ? strlen(replace) * words : strlen(of) * words))));
+                     memset(strn, '\0', sizeof(char) * (strlen(condition.string_value) + ((strlen(replace) > strlen(of) ? strlen(replace) * words : strlen(of) * words))));
+                     long wp = 0;
+                     for(int i = 0; i < strlen(condition.string_value); i++){
+                         char j = condition.string_value[i];
+                         if(j == replace[0]){
+                            bool isn = true;
+                            for(int a = 0, b = i; a < strlen(replace); a++, b++){
+                                char p0 = replace[a];
+                                char p1 = condition.string_value[b];
+                                if(p0 != p1){
+                                   isn = false;
+                                   break;
+                                }
+                            }
+      
+                            if(isn){
+                               for(int g = 0; g < strlen(of); g++){
+                                   strn[wp] = of[g];
+                                   wp++;  
+                               }
+                               i += (strlen(replace) - 1);
+                            }else{
+                              strn[wp] = j;
+                              wp++;  
+                            }
+                         }else{
+                            strn[wp] = j;
+                            wp++;
+                         }
+                     }
+      
+                     free(condition.string_value);
+                     free(val.string_value);
+                     condition.string_value = NULL;
+                     val.string_value = NULL;
+                     condition.string_value = strn;
+                     condition.type = TOKEN_STRING;
+                     lexer->char_status = false;
+                     lexer->string_status = true; 
+                  }
+              }else if(condition.type == TOKEN_CHAR){
+                  if(val.type == TOKEN_NUMBER){
+                     long long i = ((long)condition.char_value | (long)val.number_value);
+                     condition.char_value = (char)i;
+                     condition.char_value = true;
+                     condition.string_value = false;
+                     condition.type = TOKEN_CHAR;
+                  }else if(val.type == TOKEN_CHAR){
+                     long long i = ((long)condition.char_value | (long)val.char_value);
+                     condition.char_value = (char)i;
+                     condition.char_value = true;
+                     condition.string_value = false;
+                     condition.type = TOKEN_CHAR;
+                  }else{
+                      
+                  }
+              }else{
+                  if(val.type == TOKEN_NUMBER){
+                     long long i = ((long)condition.number_value | (long)val.number_value);
+                     condition.number_value = (double)i;
+                     condition.char_value = false;
+                     condition.string_value = false;
+                     condition.type = TOKEN_NUMBER;
+                  }else if(val.type == TOKEN_CHAR){
+                     long long i = ((long)condition.number_value | (long)val.char_value);
+                     condition.number_value = (double)i;
+                     condition.char_value = false;
+                     condition.string_value = false;
+                     condition.type = TOKEN_NUMBER;
+                  }else{
+                      
+                  }
+              }
+          }
     }
     return condition;
 }
