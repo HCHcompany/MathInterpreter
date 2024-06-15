@@ -1097,7 +1097,7 @@ Token parse_tenary(Lexer* lexer) {
                         lexer->string_status = true;
                      }
                   }else if(val.type == TOKEN_CHAR){
-      
+                     //"aaa" || 'a'
                   }else{
                      char *alp = (char *)malloc(sizeof(char) * 4096);
                      char *ocl = (char *)malloc(sizeof(char) * strlen(val.string_value) + 2);
@@ -1153,7 +1153,7 @@ Token parse_tenary(Lexer* lexer) {
                      condition.string_value = false;
                      condition.type = TOKEN_CHAR;
                   }else{
-                      
+                     // 'a' & "aaa"
                   }
               }else{
                   if(val.type == TOKEN_NUMBER){
@@ -1230,7 +1230,7 @@ Token parse_tenary(Lexer* lexer) {
                         free(strn);
                      }
                   }else if(val.type == TOKEN_CHAR){
-      
+                     //"aa" | 'a'
                   }else{
                      char *replace = (char *)malloc(sizeof(char) * strlen(val.string_value));
                      memset(replace, '\0', sizeof(char) * strlen(val.string_value));
@@ -1329,7 +1329,7 @@ Token parse_tenary(Lexer* lexer) {
                      condition.string_value = false;
                      condition.type = TOKEN_CHAR;
                   }else{
-                      
+                      //'a' | "aaa"
                   }
               }else{
                   if(val.type == TOKEN_NUMBER){
@@ -1345,7 +1345,7 @@ Token parse_tenary(Lexer* lexer) {
                      condition.string_value = false;
                      condition.type = TOKEN_NUMBER;
                   }else{
-                      
+                      //1 | "aaa"
                   }
               }
           }
