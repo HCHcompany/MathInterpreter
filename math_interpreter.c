@@ -362,8 +362,44 @@ Token parse_factor(Lexer* lexer) {
                    }
                }else if(right.type == TOKEN_CHAR){
                    //"cadena" * 'a'
+                   char *strn = (char *)malloc(sizeof(char) * (strlen(left.string_value) * 2 + 1));
+                   memset(strn, '\0', sizeof(char) * (strlen(left.string_value) * 2 + 1));
+                   long u0 = 0;
+                   for(int x = 0; x < strlen(left.string_value); x++){
+                       strn[u0] = left.string_value[x];
+                       u0++;
+                       if(x < (strlen(left.string_value) - 1)){
+                          strn[u0] = right.char_value;
+                          u0++;
+                       }
+                   }
+                   free(left.string_value);
+                   left.string_value = strn;
+                   left.type = TOKEN_STRING;
+                   lexer->char_status = false;
+                   lexer->string_status = true;
                }else{
                   //"cadena" * "cadena"
+                  char *strn = (char *)malloc(sizeof(char) * (strlen(left.string_value) + (strlen(right.string_value) * (strlen(left.string_value) - 1)) + 1));
+                  memset(strn, '\0', sizeof(char) * (strlen(left.string_value) + (strlen(right.string_value) * (strlen(left.string_value) - 1)) + 1));
+                  long u0 = 0;
+                  for(int x = 0; x < strlen(left.string_value); x++){
+                      strn[u0] = left.string_value[x];
+                      u0++;
+                      if(x != (strlen(left.string_value) - 1)){
+                         for(int y = 0; y < strlen(right.string_value); y++){
+                             strn[u0] = right.string_value[y];
+                             u0++;
+                         }
+                      }
+                  }
+                  free(right.string_value);
+                  right.string_value = NULL;
+                  free(left.string_value);
+                  left.string_value = strn;
+                  left.type = TOKEN_STRING;
+                  lexer->char_status = false;
+                  lexer->string_status = true;
                }
             }else if(left.type == TOKEN_CHAR){
                if(right.type == TOKEN_NUMBER){
@@ -381,7 +417,24 @@ Token parse_factor(Lexer* lexer) {
                   lexer->string_status = false;
                   lexer->char_status = true;
                }else{
-                 //'a' * "cadena"
+                   //'a' * "cadena"
+                   char *strn = (char *)malloc(sizeof(char) * (strlen(right.string_value) * 2 + 1));
+                   memset(strn, '\0', sizeof(char) * (strlen(right.string_value) * 2 + 1));
+                   long u0 = 0;
+                   for(int x = 0; x < strlen(right.string_value); x++){
+                       strn[u0] = right.string_value[x];
+                       u0++;
+                       if(x < (strlen(right.string_value) - 1)){
+                          strn[u0] = left.char_value;
+                          u0++;
+                       }
+                   }
+                   free(right.string_value);
+                   right.string_value = NULL;
+                   left.string_value = strn;
+                   left.type = TOKEN_STRING;
+                   lexer->char_status = false;
+                   lexer->string_status = true;
                }
             }else{
                if(right.type == TOKEN_NUMBER){
@@ -398,16 +451,111 @@ Token parse_factor(Lexer* lexer) {
                   lexer->string_status = false;
                }else{
                    // 1 * "cadena"
+                   if(right.number_value > 0){
+                      char *strn = (char *)malloc(sizeof(char) * (strlen(right.string_value) * (int)left.number_value + 1));
+                      memset(strn, '\0', sizeof(char) * (strlen(right.string_value) * (int)left.number_value + 1));
+                      long u0 = 0;
+                      for(int x = 0; x < (int)left.number_value; x++){
+                          for(int y = 0; y < strlen(right.string_value); y++){
+                              strn[u0] = right.string_value[y];
+                              u0++;
+                          }
+                      }
+                      free(right.string_value);
+                      right.string_value = NULL;
+                      left.string_value = strn;
+                      left.type = TOKEN_STRING;
+                      lexer->char_status = false;
+                      lexer->string_status = true;
+                   }
                }
             }
         } else if (operator == TOKEN_DIVIDE) {
             if(left.type == TOKEN_STRING){
                if(right.type == TOKEN_NUMBER){
                    //"cadena" / 1
+                   int len = (strlen(left.string_value) / (int)right.number_value);
+                   char *strn = (char *)malloc(sizeof(char) * (len + 1));
+                   memset(strn, '\0', sizeof(char) * (len + 1));
+                   for(int x = 0; x < len; x++){
+                       strn[x] = left.string_value[x];
+                   }
+                   free(left.string_value);
+                   left.string_value = strn;
+                   lexer->char_status = false;
+                   lexer->string_status = true;
                }else if(right.type == TOKEN_CHAR){
                    //"cadena" / 'a'
                }else{
                   //"cadena" / "cadena"
+                  char *separator = (char *)malloc(sizeof(char) * (strlen(right.string_value) + 1));
+                  memset(separator, '\0', sizeof(char) * (strlen(right.string_value) + 1));
+                  char *sidx = (char *)malloc(sizeof(char) * (strlen(right.string_value) + 1));
+                  memset(sidx, '\0', sizeof(char) * (strlen(right.string_value) + 1));
+                  bool isn = false;
+                  int u0 = 0, u1 = 0;
+                  for(int x = 0; x < strlen(right.string_value); x++){
+                      char c0 = right.string_value[x];
+                      if(isn){
+                         sidx[u1] = c0;
+                         u1++;
+                      }else{
+                         if(c0 != '$'){
+                            separator[u0] = c0;
+                            u0++;
+                         }else{
+                            isn = true;
+                         }
+                      }
+                  }
+
+                  if(isn){
+                     int idx = atoi(sidx);
+                     int pos = 0;
+                     char *strn = (char *)malloc(sizeof(char) * (strlen(left.string_value) + 1));
+                     memset(strn, '\0', sizeof(char) * (strlen(left.string_value) + 1));
+                     int u0 = 0;
+                     for(int v = 0; v < strlen(left.string_value); v++){
+                         char c0 = left.string_value[v];
+                         if(c0 == separator[0]){
+                            bool isAv = true;
+                            for(int o = 0, q = v; o < strlen(separator); o++, q++){
+                                char p0 = separator[o];
+                                char p1 = left.string_value[q];
+                                if(p0 != p1){
+                                   isAv = false;
+                                }
+                            }
+
+                            if(isAv){
+                               if(idx == pos){
+                                  break;
+                               }else{
+                                  memset(strn, '\0', sizeof(char) * (strlen(left.string_value) + 1));
+                                  u0 = 0;
+                                  v += (strlen(separator) - 1);
+                                  pos++;
+                               }
+                            }else{
+                               strn[u0] = c0;
+                               u0++;    
+                            }
+                         }else{
+                            strn[u0] = c0;
+                            u0++;
+                         }
+                     }
+                     free(right.string_value);
+                     right.string_value = NULL;
+                     free(left.string_value);
+                     left.string_value = strn;
+                     left.type = TOKEN_STRING;
+                     lexer->char_status = false;
+                     lexer->string_status = true;
+                  }else{
+                    fprintf(stderr, "Syntax error not '$' symbol in string.\n");
+                    exit(0);
+                  }
                }
             }else if(left.type == TOKEN_CHAR){
                if(right.type == TOKEN_NUMBER){
@@ -1264,25 +1412,30 @@ Token parse_tenary(Lexer* lexer) {
                             }
                          }
                      }
-                     int code = atoi(alp);
-                     char *strn = (char *)malloc(sizeof(char) * (strlen(condition.string_value) + strlen(val.string_value) + code + 2));
-                     memset(strn, '\0', sizeof(char) * (strlen(condition.string_value) + strlen(val.string_value) + code + 2));
-                     strcpy(strn, condition.string_value);
-                     int k = strlen(condition.string_value) + code;
-
-                     for(int x = 0; x < strlen(ocl); x++){
-                         strn[k] = ocl[x];
-                         k++;
+                     if(isp){
+                        int code = atoi(alp);
+                        char *strn = (char *)malloc(sizeof(char) * (strlen(condition.string_value) + strlen(val.string_value) + code + 2));
+                        memset(strn, '\0', sizeof(char) * (strlen(condition.string_value) + strlen(val.string_value) + code + 2));
+                        strcpy(strn, condition.string_value);
+                        int k = strlen(condition.string_value) + code;
+   
+                        for(int x = 0; x < strlen(ocl); x++){
+                            strn[k] = ocl[x];
+                            k++;
+                        }
+                        strn[k] = '\0';
+                        free(condition.string_value);
+                        condition.string_value = NULL;
+                        free(val.string_value);
+                        val.string_value = NULL;
+                        condition.string_value = strn;
+                        condition.type = TOKEN_STRING;
+                        lexer->char_status = false;
+                        lexer->string_status = true;
+                     }else{
+                         fprintf(stderr, "Syntax error not '$' symbol in string.\n");
+                         exit(0);
                      }
-                     strn[k] = '\0';
-                     free(condition.string_value);
-                     condition.string_value = NULL;
-                     free(val.string_value);
-                     val.string_value = NULL;
-                     condition.string_value = strn;
-                     condition.type = TOKEN_STRING;
-                     lexer->char_status = false;
-                     lexer->string_status = true;
                   }
               }else if(condition.type == TOKEN_CHAR){
                   if(val.type == TOKEN_NUMBER){
