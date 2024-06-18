@@ -252,10 +252,6 @@ bool isChar(char c){
     }
 }
 
-bool isSymName(char c){
-    
-}
-
 Token get_number_token(Lexer* lexer) {
     char buffer[64];
     size_t length = 0;
