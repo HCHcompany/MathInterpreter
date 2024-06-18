@@ -8,11 +8,26 @@
 static double PRECISION = 0.00000000000001;
 static int MAX_NUMBER_STRING_SIZE = 4096; //32
 
+// Definicion base de variables.
+typedef enum{
+    SYMBOLS_END,
+    SYMBOLS_START,
+    SYMBOLS_NONE,
+}StatusSymbols;
+
+typedef struct Var Var;
+typedef struct Var{
+    char *name;
+    char *symbols;
+    int symbolsStatus;
+}Var;
+
 // Definición de tokens
 typedef enum {
     TOKEN_NUMBER,
     TOKEN_STRING,
     TOKEN_CHAR,
+    TOKEN_VAR,
     TOKEN_PLUS,
     TOKEN_MINUS,
     TOKEN_MULTIPLY,
@@ -37,16 +52,18 @@ typedef enum {
     TOKEN_QUESTION,
     TOKEN_COLON,
     TOKEN_END,
+    TOKEN_CCH,
     TOKEN_INVALID
 } TokenType;
 
 // Estructura de token
 typedef struct {
     TokenType type;
-    union {
+    union{
         double number_value;
         char *string_value;
         int char_value;
+        Var *var_value;
     };
 } Token;
 
@@ -89,11 +106,10 @@ char *dtoa(char *s, double n);
 // Función principal
 int main() {
     char expression[256];
-
     printf("Ingrese una expresión matemática (o 'salir' para terminar):\n");
     while (1) {
         printf("> ");
-        if (!fgets(expression, sizeof(expression), stdin)) {
+        if(!fgets(expression, sizeof(expression), stdin)) {
             break;
         }
         if (strncmp(expression, "salir", 5) == 0) {
@@ -107,7 +123,7 @@ int main() {
         }else if(result.type == TOKEN_CHAR){
             printf("Resultado: %c\n", (char)result.char_value);
         }else{
-           if(fabs(result.number_value - (int)result.number_value) < 1e-10) {
+           if(fabs(result.number_value - (int)result.number_value) < 1e-10){
                printf("Resultado: %.0f\n", result.number_value);
            }else{
                printf("Resultado: %.14f\n", result.number_value);
@@ -120,7 +136,7 @@ int main() {
 
 // Implementación del lexer
 Token get_next_token(Lexer* lexer) {
-    while (lexer->text[lexer->pos] != '\0' && isspace(lexer->text[lexer->pos])) {
+    while(lexer->text[lexer->pos] != '\0' && isspace(lexer->text[lexer->pos])){
         lexer->pos++;
     }
 
@@ -216,6 +232,7 @@ Token get_next_token(Lexer* lexer) {
         case '^': token.type = TOKEN_XOR; break;
         case '?': token.type = TOKEN_QUESTION; break;
         case ':': token.type = TOKEN_COLON; break;
+        case '~': token.type = TOKEN_CCH; break;
         default: token.type = TOKEN_INVALID; break;
     }
 
@@ -223,12 +240,48 @@ Token get_next_token(Lexer* lexer) {
     return token;
 }
 
+bool isChar(char c){
+    if(c == 'a' || c == 'b' || c == 'c' || c == 'd' || c == 'e' || c == 'f' || c == 'g' || c == 'h' || c == 'i' || c == 'j' || c == 'k' || 
+       c == 'l' || c == 'm' || c == 'n' || c == 'o' || c == 'p' || c == 'q' || c == 'r' || c == 's' || c == 't' || c == 'u' || c == 'v' || 
+       c == 'w' || c == 'x' || c == 'y' || c == 'z' || c == 'A' || c == 'B' || c == 'C' || c == 'D' || c == 'E' || c == 'F' || c == 'G' || 
+       c == 'H' || c == 'I' || c == 'J' || c == 'K' || c == 'L' || c == 'M' || c == 'N' || c == 'O' || c == 'P' || c == 'Q' || c == 'R' || 
+       c == 'S' || c == 'T' || c == 'U' || c == 'V' || c == 'W' || c == 'X' || c == 'Y' || c == 'Z'){
+        return true;
+    }else{
+        return false;
+    }
+}
+
+bool isSymName(char c){
+    
+}
+
 Token get_number_token(Lexer* lexer) {
     char buffer[64];
     size_t length = 0;
-
-    while (isdigit(lexer->text[lexer->pos]) || lexer->text[lexer->pos] == '.') {
-        buffer[length++] = lexer->text[lexer->pos++];
+    bool iscom = false;
+    while(isdigit(lexer->text[lexer->pos]) || lexer->text[lexer->pos] == '.' || lexer->text[lexer->pos] == '_' || isChar(lexer->text[lexer->pos])){
+          if(iscom){
+             if(isdigit(lexer->text[lexer->pos])){
+                buffer[length++] = lexer->text[lexer->pos++];
+             }else if(lexer->text[lexer->pos] == '.'){
+                fprintf(stderr, "Error de sintaxis se repite el punto flotante en el valor numerico\n");
+                exit(0);
+             }else{
+                fprintf(stderr, "Error en la declaracion de el valor numerico, contiene caracteres.\n");
+                exit(0);
+             }
+          }else{
+            if(lexer->text[lexer->pos] == '.'){
+               buffer[length++] = lexer->text[lexer->pos++];
+               iscom = true;
+            }else if(isdigit(lexer->text[lexer->pos])){ 
+               buffer[length++] = lexer->text[lexer->pos++];
+            }else{
+               fprintf(stderr, "Error en la declaracion de el valor numerico, contiene caracteres.\n");
+               exit(0);
+            }
+          }
     }
     buffer[length] = '\0';
 
@@ -319,15 +372,17 @@ Token parse_primary(Lexer* lexer) {
 
 Token parse_unary(Lexer* lexer) {
     Token token = lexer->current_token;
-    if (token.type == TOKEN_MINUS || token.type == TOKEN_PLUS || token.type == TOKEN_NOT) {
+    if(token.type == TOKEN_MINUS || token.type == TOKEN_PLUS || token.type == TOKEN_NOT || token.type == TOKEN_CCH) {
         get_next_token(lexer);
         Token operand = parse_unary(lexer);
         if (token.type == TOKEN_MINUS) {
             operand.number_value = -operand.number_value;
-        } else if (token.type == TOKEN_PLUS) {
-            // No cambia el valor
-        } else if (token.type == TOKEN_NOT) {
+        } else if (token.type == TOKEN_PLUS){
+            operand.number_value = +operand.number_value;
+        }else if (token.type == TOKEN_NOT){
             operand.number_value = !operand.number_value;
+        }else if(token.type == TOKEN_CCH){
+            operand.number_value = (double)(~((long)operand.number_value));
         }
         return operand;
     }
@@ -484,8 +539,42 @@ Token parse_factor(Lexer* lexer) {
                    left.string_value = strn;
                    lexer->char_status = false;
                    lexer->string_status = true;
+                   left.type = TOKEN_STRING;
                }else if(right.type == TOKEN_CHAR){
                    //"cadena" / 'a'
+                   char *strn = (char *)malloc(sizeof(char) * (strlen(left.string_value) + 1));
+                   memset(strn, '\0', sizeof(char) * (strlen(left.string_value) + 1));
+                   bool err = false;
+                   int u0 = 0;
+                   for(int x = 0; x < strlen(left.string_value); x++){
+                       char c0 = left.string_value[x];
+                       if(c0 == right.char_value){
+                          err = true;
+                          x++;
+                          for(int y = x; y < strlen(left.string_value); y++){
+                              char c1 = left.string_value[y];
+                              if(c1 != right.char_value){
+                                 strn[u0] = c1;
+                                 u0++;
+                                 x++;
+                              }else{
+                                 err = false;
+                                 break;
+                              }
+                          }
+
+                          if(err){
+                             fprintf(stderr, "Error no se cerro fragment con el simbolo %c\n", right.char_value);
+                             exit(0);  
+                          }
+                       }
+                   }
+
+                   free(left.string_value);
+                   left.string_value = strn;
+                   left.type = TOKEN_STRING;
+                   lexer->char_status = false;
+                   lexer->string_status = true;
                }else{
                   //"cadena" / "cadena"
                   char *separator = (char *)malloc(sizeof(char) * (strlen(right.string_value) + 1));
@@ -573,7 +662,39 @@ Token parse_factor(Lexer* lexer) {
                   lexer->string_status = false;
                   lexer->char_status = true;
                }else{
-                 //'a' / "cadena"
+                //'a' / "cadena"
+                char *strn = (char *)malloc(sizeof(char) * (strlen(right.string_value) + 1));
+                memset(strn, '\0', sizeof(char) * (strlen(right.string_value) + 1));
+                bool err = false;
+                int u0 = 0;
+                for(int x = 0; x < strlen(right.string_value); x++){
+                    char c0 = right.string_value[x];
+                    if(c0 == left.char_value){
+                       err = true;
+                       x++;
+                       for(int y = x; y < strlen(right.string_value); y++){
+                           char c1 = right.string_value[y];
+                           if(c1 != left.char_value){
+                              strn[u0] = c1;
+                              u0++;
+                              x++;
+                           }else{
+                              err = false;
+                              break;
+                           }
+                       }
+                       if(err){
+                          fprintf(stderr, "Error no se cerro fragment con el simbolo %c\n", right.char_value);
+                          exit(0);  
+                       }
+                    }
+                }
+                free(right.string_value);
+                right.string_value = NULL;
+                left.string_value = strn;
+                left.type = TOKEN_STRING;
+                lexer->char_status = false;
+                lexer->string_status = true;
                }
             }else{
                if(right.type == TOKEN_NUMBER){
@@ -590,16 +711,143 @@ Token parse_factor(Lexer* lexer) {
                    lexer->char_status = false;
                }else{
                    // 1 / "cadena"
+                   int len = (strlen(right.string_value) / (int)left.number_value);
+                   char *strn = (char *)malloc(sizeof(char) * (len + 1));
+                   memset(strn, '\0', sizeof(char) * (len + 1));
+                   for(int x = 0; x < len; x++){
+                       strn[x] = right.string_value[x];
+                   }
+                   free(right.string_value);
+                   right.string_value = NULL;
+                   left.string_value = strn;
+                   lexer->char_status = false;
+                   lexer->string_status = true;
+                   left.type = TOKEN_STRING;
                }
             }
         } else if (operator == TOKEN_MOD) {//%
             if(left.type == TOKEN_STRING){
                if(right.type == TOKEN_NUMBER){
                    //"cadena" % 1
+                   int len = (int)((double)(strlen(left.string_value) / 100.0) * (int)right.number_value);
+                   if(len <= strlen(left.string_value)){
+                      char *strn = (char *)malloc(sizeof(char) * (len + 1));
+                      memset(strn, '\0', sizeof(char) * (len + 1));
+                      for(int x = 0; x < len; x++){
+                          strn[x] = left.string_value[x];
+                      }
+                      free(left.string_value);
+                      left.string_value = strn;
+                      left.type = TOKEN_STRING;
+                      lexer->char_status = false;
+                      lexer->string_status = true;
+                   }else{
+                      fprintf(stderr, "Error porcentaje fuera de rango 0-100.\n");
+                      exit(0);
+                   }
                }else if(right.type == TOKEN_CHAR){
                    //"cadena" % 'a'
+                   int nc = 0;
+                   for(int x = 0; x < strlen(left.string_value); x++){
+                       char c0 = left.string_value[x];
+                       if(c0 == right.char_value){
+                          nc++;
+                       }
+                   }
+
+                   double porc = ((double)strlen(left.string_value) / 100.0) * (double)nc;
+                   free(left.string_value);
+                   left.string_value = NULL;
+                   left.number_value = porc;
+                   left.type = TOKEN_NUMBER;
+                   lexer->char_status = false;
+                   lexer->string_status = false;
                }else{
                   //"cadena" % "cadena"
+                  long words = 0;
+                  for(int x = 0; x < strlen(left.string_value); x++){
+                      char c0 = left.string_value[x];
+                      if(c0 == ' ' || c0 == '\t' || x == (strlen(left.string_value) - 1)){
+                         words++;
+                      }
+                  }
+
+                  long coins = 0;
+                  char *buf = (char *)malloc(sizeof(char) * strlen(left.string_value) + 1);
+                  memset(buf, '\0', sizeof(char) * strlen(left.string_value) + 1);
+                  long u0 = 0;
+                  for(int a = 0; a < strlen(right.string_value); a++){
+                      char c0 = right.string_value[a];
+                      if(c0 == ' ' || c0 == '\t' || a == (strlen(right.string_value) - 1)){
+                         if(a == (strlen(right.string_value) - 1)){
+                            buf[u0] = c0;
+                            u0++;   
+                         }
+                         a++;
+                         char *val = (char *)malloc(sizeof(char) * (strlen(right.string_value) + 1));
+                         memset(val, '\0', sizeof(char) * (strlen(right.string_value) + 1));
+                         long u1 = 0;
+                         for(int b = 0; b < strlen(left.string_value); b++){
+                             char p0 = left.string_value[b];
+                             if(p0 == ' ' || p0 == '\t' || b == (strlen(left.string_value) - 1)){
+                                if(b == (strlen(left.string_value) - 1)){    
+                                   val[u1] = p0;
+                                   u1++;
+                                }
+                                
+                                if(strcmp(buf, val) == 0){
+                                   coins++;
+                                   memset(val, '\0', sizeof(char) * (strlen(right.string_value) + 1));
+                                   u1 = 0;
+                                }else{
+                                   memset(val, '\0', sizeof(char) * (strlen(right.string_value) + 1));
+                                   u1 = 0;
+                                }
+                             }else{
+                                val[u1] = p0;
+                                u1++;
+                             }
+                         }
+                         free(val);
+                         val = NULL;
+                         memset(buf, '\0', sizeof(char) * strlen(left.string_value) + 1);
+                         u0 = 0;
+                      }else{
+                         buf[u0] = c0;
+                         u0++;
+                      }
+                  }
+                  free(buf);
+
+                  char *c = (char *)malloc(sizeof(char) * 4096);
+                  memset(c, '\0', sizeof(char) * 4096);
+                  char *w = (char *)malloc(sizeof(char) * 4096);
+                  memset(w, '\0', sizeof(char) * 4096);
+                  char *p = (char *)malloc(sizeof(char) * 4096);
+                  memset(p, '\0', sizeof(char) * 4096);
+                  
+                  c = dtoa(c, (double)coins);
+                  w = dtoa(w, (double)words);
+                  p = dtoa(p, (double)((100.0 / (double)words) * (double)coins));
+
+                  char *strn = (char *)malloc(sizeof(char) * (6 + strlen(c) + strlen(w) + strlen(p) + 10));
+                  memset(strn, '\0', sizeof(char) * (6 + strlen(c) + strlen(w) + strlen(p) + 10));
+                  strcpy(strn, "C:");
+                  strcat(strn, c);
+                  free(c);
+                  strcat(strn, "|W:");
+                  strcat(strn, w);
+                  free(w);
+                  strcat(strn, "|P:");
+                  strcat(strn, p);
+                  free(p);
+                  free(right.string_value);
+                  right.string_value = NULL;
+                  free(left.string_value);
+                  left.string_value = strn;
+                  left.type = TOKEN_STRING;
+                  lexer->char_status = false;
+                  lexer->string_status = true;
                }
             }else if(left.type == TOKEN_CHAR){
                if(right.type == TOKEN_NUMBER){
@@ -616,6 +864,21 @@ Token parse_factor(Lexer* lexer) {
                   lexer->string_status = false;
                }else{
                  //'a' % "cadena"
+                 int nc = 0;
+                   for(int x = 0; x < strlen(right.string_value); x++){
+                       char c0 = right.string_value[x];
+                       if(c0 == left.char_value){
+                          nc++;
+                       }
+                   }
+
+                   double porc = ((double)strlen(right.string_value) / 100.0) * (double)nc;
+                   free(right.string_value);
+                   right.string_value = NULL;
+                   left.number_value = porc;
+                   left.type = TOKEN_NUMBER;
+                   lexer->char_status = false;
+                   lexer->string_status = false;
                }
             }else{
                if(right.type == TOKEN_NUMBER){
@@ -632,6 +895,23 @@ Token parse_factor(Lexer* lexer) {
                    lexer->string_status = false;
                }else{
                    // 1 % "cadena"
+                   int len = (int)((double)(strlen(right.string_value) / 100.0) * (int)left.number_value);
+                   if(len <= strlen(right.string_value)){
+                      char *strn = (char *)malloc(sizeof(char) * (len + 1));
+                      memset(strn, '\0', sizeof(char) * (len + 1));
+                      for(int x = 0; x < len; x++){
+                          strn[x] = right.string_value[x];
+                      }
+                      free(right.string_value);
+                      right.string_value = NULL;
+                      left.string_value = strn;
+                      left.type = TOKEN_STRING;
+                      lexer->char_status = false;
+                      lexer->string_status = true;
+                   }else{
+                      fprintf(stderr, "Error porcentaje fuera de rango 0-100.\n");
+                      exit(0);
+                   }
                }
             }
         }
