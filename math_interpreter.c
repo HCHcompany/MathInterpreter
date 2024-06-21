@@ -372,13 +372,49 @@ Token parse_unary(Lexer* lexer) {
         get_next_token(lexer);
         Token operand = parse_unary(lexer);
         if (token.type == TOKEN_MINUS) {
-            operand.number_value = -operand.number_value;
+            if(operand.type == TOKEN_NUMBER){
+               operand.number_value = -operand.number_value;
+            }else if(operand.type == TOKEN_CHAR){
+               operand.number_value = -(double)((int)operand.char_value);
+               operand.type = TOKEN_NUMBER;
+               lexer->char_status = false;
+            }else{
+               fprintf(stderr, "Incompatible symbol - for string values\n");
+               exit(0);
+            }
         } else if (token.type == TOKEN_PLUS){
-            operand.number_value = +operand.number_value;
+            if(operand.type == TOKEN_NUMBER){
+               operand.number_value = +operand.number_value;
+            }else if(operand.type == TOKEN_CHAR){
+               operand.number_value = +(double)((int)operand.char_value);
+               operand.type = TOKEN_NUMBER;
+               lexer->char_status = false;
+            }else{
+               fprintf(stderr, "Incompatible symbol - for string values\n");
+               exit(0);
+            }
         }else if (token.type == TOKEN_NOT){
-            operand.number_value = !operand.number_value;
+            if(operand.type == TOKEN_NUMBER){
+               operand.number_value = !operand.number_value;
+            }else if(operand.type == TOKEN_CHAR){
+               operand.number_value = !(double)((int)operand.char_value);
+               operand.type = TOKEN_NUMBER;
+               lexer->char_status = false;
+            }else{
+               fprintf(stderr, "Incompatible symbol - for string values\n");
+               exit(0);
+            }
         }else if(token.type == TOKEN_CCH){
-            operand.number_value = (double)(~((long)operand.number_value));
+            if(operand.type == TOKEN_NUMBER){
+               operand.number_value = (double)~((long)operand.number_value);
+            }else if(operand.type == TOKEN_CHAR){
+               operand.number_value = (double)~((long)operand.char_value);
+               operand.type = TOKEN_NUMBER;
+               lexer->char_status = false;
+            }else{
+               fprintf(stderr, "Incompatible symbol - for string values\n");
+               exit(0);
+            }
         }
         return operand;
     }
