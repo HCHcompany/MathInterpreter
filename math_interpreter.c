@@ -8,20 +8,6 @@
 static double PRECISION = 0.00000000000001;
 static int MAX_NUMBER_STRING_SIZE = 4096; //32
 
-// Definicion base de variables.
-typedef enum{
-    SYMBOLS_END,
-    SYMBOLS_START,
-    SYMBOLS_NONE,
-}StatusSymbols;
-
-typedef struct Var Var;
-typedef struct Var{
-    char *name;
-    char *symbols;
-    int symbolsStatus;
-}Var;
-
 // Definición de tokens
 typedef enum {
     TOKEN_NUMBER,
@@ -63,7 +49,6 @@ typedef struct {
         double number_value;
         char *string_value;
         int char_value;
-        Var *var_value;
     };
 } Token;
 
