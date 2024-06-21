@@ -375,7 +375,7 @@ Token parse_unary(Lexer* lexer) {
                operand.type = TOKEN_NUMBER;
                lexer->char_status = false;
             }else{
-               fprintf(stderr, "Incompatible symbol - for string values\n");
+               fprintf(stderr, "Incompatible symbol + for string values\n");
                exit(0);
             }
         }else if (token.type == TOKEN_NOT){
@@ -386,7 +386,7 @@ Token parse_unary(Lexer* lexer) {
                operand.type = TOKEN_NUMBER;
                lexer->char_status = false;
             }else{
-               fprintf(stderr, "Incompatible symbol - for string values\n");
+               fprintf(stderr, "Incompatible symbol ! for string values\n");
                exit(0);
             }
         }else if(token.type == TOKEN_CCH){
@@ -397,7 +397,7 @@ Token parse_unary(Lexer* lexer) {
                operand.type = TOKEN_NUMBER;
                lexer->char_status = false;
             }else{
-               fprintf(stderr, "Incompatible symbol - for string values\n");
+               fprintf(stderr, "Incompatible symbol ~ for string values\n");
                exit(0);
             }
         }
