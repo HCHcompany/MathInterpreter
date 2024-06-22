@@ -723,12 +723,11 @@ Token get_variable_value(Lexer *lexer, bool sub){
                 break;
              }
           }else if(c == '='){
-            printf("Llegue aqui\n");
             char b = lexer->text[lexer->pos + 1];
              if(b == '='){ //En este caso se toma como un operador logico por lo tanto se frena el proceso.
                 lexer->pos--; // Se resta uno para que el operador logico quede completo. 
                 break;
-             }else if(b == '=' && sub){ // Se asigna el valor que le sigue.
+             }else{ // Se asigna el valor que le sigue.
                 if(!isSymbols){
                     if(u0 > 0){
                        lexer->pos += 2; // Se incrementa la posicion a 2 para seguir leyendo el codigo que sigue.
@@ -773,8 +772,6 @@ Token get_variable_value(Lexer *lexer, bool sub){
                    fprintf(stderr, "(2) Symbols error in operation.\n");
                    exit(0);
                 }
-             }else{ // El token corresponde a una suma.
-                break;
              }
           }else if(c == '^'){
              char b = lexer->text[lexer->pos + 1];
