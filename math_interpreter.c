@@ -39,7 +39,8 @@ typedef enum {
     TOKEN_COLON,
     TOKEN_END,
     TOKEN_CCH,
-    TOKEN_INVALID
+    TOKEN_INVALID,
+    TOKEN_NONE,
 } TokenType;
 
 // Estructura de token
@@ -61,6 +62,25 @@ typedef struct {
     Token current_token;
 } Lexer;
 
+//Estructura de operaciones internas.
+typedef enum{
+   NUMBER_STATUS,
+   STRING_STATUS,
+   VAR_STATUS,
+   NONE_STATUS,
+}OPERATOR_STATUS;
+
+typedef struct Operator Operator;
+typedef struct Operator{
+   char *symbols;
+   double number_value;
+   char *str_value;
+   char *var_value;
+   OPERATOR_STATUS status;
+   Operator *prev;
+   Operator *next;
+}Operator;
+
 // Funciones de ayuda para el lexer
 Token get_next_token(Lexer* lexer);
 Token get_number_token(Lexer* lexer);
@@ -73,6 +93,7 @@ Token parse_primary(Lexer* lexer);
 Token parse_unary(Lexer* lexer);
 Token parse_tenary(Lexer* lexer);
 char* parse_expression_string(Lexer* lexer);
+Token get_token_digit_char_string(Lexer *lexer);
 
 // Función de evaluación
 Token evaluate(const char* expression);
@@ -117,6 +138,848 @@ int main() {
     }
 
     return 0;
+}
+
+Operator *createOperator(){
+   Operator *operator = (Operator *)malloc(sizeof(Operator));
+   operator->next = NULL;
+   operator->prev = NULL;
+   operator->symbols = NULL;
+   operator->number_value = 0.0f;
+   operator->str_value = NULL;
+   operator->var_value = NULL;
+   operator->status = NONE_STATUS;
+   return operator;
+}
+
+void addOperatorNumber(Operator *operator, const char *symbols, double value){
+   Operator **pos = &operator;
+   Operator **prev = NULL;
+   while(true){
+         if(*pos){
+            if(!((*pos)->symbols)){
+                (*pos)->symbols = (char *)malloc(sizeof(char) * (strlen(symbols) + 1));
+                memset((*pos)->symbols, '\0', sizeof(char) * (strlen(symbols) + 1));
+                strcpy((*pos)->symbols, symbols);
+                (*pos)->number_value = value;
+                (*pos)->status = NUMBER_STATUS;
+                break;
+            }else{
+               prev = pos;
+               pos = &((*pos)->next);
+            }
+         }else{
+            (*pos) = (Operator *)malloc(sizeof(Operator));
+            (*pos)->next = NULL;
+            if(prev){
+               (*pos)->prev = *prev;
+            }else{
+               (*pos)->prev = NULL;
+            }
+            (*pos)->symbols = (char *)malloc(sizeof(char) * (strlen(symbols) + 1));
+             memset((*pos)->symbols, '\0', sizeof(char) * (strlen(symbols) + 1));
+             strcpy((*pos)->symbols, symbols);
+             (*pos)->number_value = value;
+             (*pos)->status = NUMBER_STATUS;
+             (*pos)->str_value = NULL;
+             (*pos)->var_value = NULL;
+             break;
+         }
+   }
+}
+
+void addOperatorString(Operator *operator, const char *symbols, const char *value){
+   Operator **pos = &operator;
+   Operator **prev = NULL;
+   while(true){
+         if(*pos){
+            if(!((*pos)->symbols)){
+                (*pos)->symbols = (char *)malloc(sizeof(char) * (strlen(symbols) + 1));
+                memset((*pos)->symbols, '\0', sizeof(char) * (strlen(symbols) + 1));
+                strcpy((*pos)->symbols, symbols);
+                (*pos)->str_value = (char *)malloc(sizeof(char) * (strlen(value) + 1));
+                memset((*pos)->str_value, '\0', sizeof(char) * (strlen(value) + 1));
+                strcpy((*pos)->str_value, value);
+                (*pos)->status = STRING_STATUS;
+                break;
+            }else{
+               prev = pos;
+               pos = &((*pos)->next);
+            }
+         }else{
+            (*pos) = (Operator *)malloc(sizeof(Operator));
+            (*pos)->next = NULL;
+            if(prev){
+               (*pos)->prev = *prev;
+            }else{
+               (*pos)->prev = NULL;
+            }
+            (*pos)->symbols = (char *)malloc(sizeof(char) * (strlen(symbols) + 1));
+             memset((*pos)->symbols, '\0', sizeof(char) * (strlen(symbols) + 1));
+             strcpy((*pos)->symbols, symbols);
+             (*pos)->number_value = 0;
+             (*pos)->str_value = (char *)malloc(sizeof(char) * (strlen(value) + 1));
+             memset((*pos)->str_value, '\0', sizeof(char) * (strlen(value) + 1));
+             strcpy((*pos)->str_value, value);
+             (*pos)->status = STRING_STATUS;
+             (*pos)->var_value = NULL;
+             break;
+         }
+   }
+}
+
+void addOperatorVar(Operator *operator, const char *symbols, const char *value){
+   Operator **pos = &operator;
+   Operator **prev = NULL;
+   while(true){
+         if(*pos){
+            if(!((*pos)->symbols)){
+                (*pos)->symbols = (char *)malloc(sizeof(char) * (strlen(symbols) + 1));
+                memset((*pos)->symbols, '\0', sizeof(char) * (strlen(symbols) + 1));
+                strcpy((*pos)->symbols, symbols);
+                (*pos)->var_value = (char *)malloc(sizeof(char) * (strlen(value) + 1));
+                memset((*pos)->var_value, '\0', sizeof(char) * (strlen(value) + 1));
+                strcpy((*pos)->var_value, value);
+                (*pos)->status = VAR_STATUS;
+                break;
+            }else{
+               prev = pos;
+               pos = &((*pos)->next);
+            }
+         }else{
+            (*pos) = (Operator *)malloc(sizeof(Operator));
+            (*pos)->next = NULL;
+            if(prev){
+               (*pos)->prev = *prev;
+            }else{
+               (*pos)->prev = NULL;
+            }
+            (*pos)->symbols = (char *)malloc(sizeof(char) * (strlen(symbols) + 1));
+             memset((*pos)->symbols, '\0', sizeof(char) * (strlen(symbols) + 1));
+             strcpy((*pos)->symbols, symbols);
+             (*pos)->number_value = 0;
+             (*pos)->var_value = (char *)malloc(sizeof(char) * (strlen(value) + 1));
+             memset((*pos)->var_value, '\0', sizeof(char) * (strlen(value) + 1));
+             strcpy((*pos)->var_value, value);
+             (*pos)->status = VAR_STATUS;
+             (*pos)->str_value = NULL;
+             break;
+         }
+   }
+}
+
+void freeOperator(Operator *operator){
+   if(operator){
+      Operator **pos = &operator;
+      Operator **end = NULL;
+      while(*pos){
+            end = pos;
+            pos = &((*pos)->next);
+      }
+
+      Operator **prev = NULL;
+      while(*end){
+            prev = &((*end)->prev);
+            if((*end)->status == NUMBER_STATUS){
+               (*end)->number_value = 0;
+            }else if((*end)->status == STRING_STATUS){
+               free((*end)->str_value);
+               (*end)->str_value = NULL;
+            }else if((*end)->status == VAR_STATUS){
+               free((*end)->var_value);
+               (*end)->var_value = NULL;
+            }
+            free((*end)->symbols);
+            free((*end));
+            end = prev;
+      }
+   }
+}
+
+bool is_variable_value(Lexer *lexer){
+    if(lexer->text[lexer->pos] != '\'' && lexer->text[lexer->pos] != '"' && lexer->text[lexer->pos] != '*' && lexer->text[lexer->pos] != '/' &&
+       lexer->text[lexer->pos] != '(' && lexer->text[lexer->pos] != ')' && lexer->text[lexer->pos] != '~' && lexer->text[lexer->pos] != '!' && 
+       lexer->text[lexer->pos] != '%' && lexer->text[lexer->pos] != '&' && lexer->text[lexer->pos] != '|' && lexer->text[lexer->pos] != '<' && 
+       lexer->text[lexer->pos] != '>' && lexer->text[lexer->pos] != '=' && lexer->text[lexer->pos] != '^' && lexer->text[lexer->pos] != '?' &&
+       lexer->text[lexer->pos] != ':' && lexer->text[lexer->pos] != '0' && lexer->text[lexer->pos] != '1' && lexer->text[lexer->pos] != '2' &&
+       lexer->text[lexer->pos] != '3' && lexer->text[lexer->pos] != '4' && lexer->text[lexer->pos] != '5' && lexer->text[lexer->pos] != '6' &&
+       lexer->text[lexer->pos] != '7' && lexer->text[lexer->pos] != '8' && lexer->text[lexer->pos] != '9'){
+       if(lexer->text[lexer->pos] == '+' ){
+          if(lexer->text[lexer->pos + 1] == '+'){
+             return true;
+          }else{
+             return false;
+          }
+       }else if(lexer->text[lexer->pos] == '-'){
+          if(lexer->text[lexer->pos + 1] == '-'){
+             return true;
+          }else{
+             return false;
+          }
+       }else{
+         return true;
+       }
+    }else{
+         return false;
+    }
+}
+
+Token get_variable_value(Lexer *lexer, bool sub){
+    //Obtener nombre de la variable.
+    Operator *operator = createOperator();
+    char *var_name = (char *)malloc(sizeof(char) * (strlen(lexer->text) + 1));
+    memset(var_name, '\0', sizeof(char) * (strlen(lexer->text) + 1));
+    int u0 = 0; // Esta es la posicion del puntero donde se guarda el nombre de la variable.
+    bool isSymbols = false; // Este especifica si ya se a declarado un simbolo "++" o "--" dentro de la operacion.
+    while(lexer->text[lexer->pos] != '\'' && lexer->text[lexer->pos] != '"' && lexer->text[lexer->pos] != '<' &&  lexer->text[lexer->pos] != '?' && 
+          lexer->text[lexer->pos] != '(' && lexer->text[lexer->pos] != ')' && lexer->text[lexer->pos] != '~' && lexer->text[lexer->pos] != '!' && 
+          lexer->text[lexer->pos] != '>' && lexer->text[lexer->pos] != ':' && lexer->text[lexer->pos] != '\0'){
+          char c = lexer->text[lexer->pos];
+          if(c == ' ' || c == '\t'){
+             lexer->pos++;
+          }else if(c == '+'){
+             char b = lexer->text[lexer->pos + 1];
+             if(b == '+'){ //Se incrementa 1.
+                if(!isSymbols){ // Se verifica si ya se han declarado simbolos previos.
+                    lexer->pos+=2; // Se incrementa 2 para llegar al proximo caracter.
+                    addOperatorNumber(operator, "++", 1); // Se añade el operador de suma incrementando 1.
+                    isSymbols = true; // Se establece la declaracion de simbolos como verdadero.
+                }else{
+                  //Error simbolos ya declarados.
+                  fprintf(stderr, "(0) Symbols error in operation.\n");
+                  exit(0);
+                }
+             }else if(b == '=' && sub){ // Se incrementa el valor que le sigue.
+                if(!isSymbols){
+                    if(u0 > 0){
+                       lexer->pos += 2; // Se incrementa la posicion a 2 para seguir leyendo el codigo que sigue.
+                       while(lexer->text[lexer->pos] != '\0' && isspace(lexer->text[lexer->pos])){ // Se recorre el codigo hasta encontrar un caracter diferente a space y tab o \0
+                             lexer->pos++;
+                       }
+
+                       if(lexer->text[lexer->pos] == '\0'){ // Se verifica si el caracter en la posicion actual no indica el termino del codigo.
+                          fprintf(stderr, "(3) Error termino inesperado del codigo.\n"); // En el caso de que haya terminado se lanza un error indicando que hubo un termino inesperado.
+                          exit(0);
+                       }
+
+                       //En el caso de que el caracter sea valido completamente se procede a validar si es NUMBER, CHAR o STRING.
+                       Token val = get_token_digit_char_string(lexer); // Esto retornara un tipo NUMBER, STRING, CHAR o en el caso de que no coincida NONE.
+                       if(val.type == TOKEN_CHAR || val.type == TOKEN_NUMBER){ // En el caso de que sea NUMBER o CHAR se procede a añadir el operador incrementando el valor leido.
+                          addOperatorNumber(operator, "+=", val.type == TOKEN_NUMBER ? val.number_value : (double)(int)val.char_value);
+                          lexer->char_status = false;
+                       }else if(val.type == TOKEN_STRING){ // En el caso de que el tipo sea STRING se procede a añadir el operador y el valor.
+                          addOperatorString(operator, "+=", val.string_value);
+                          free(val.string_value);
+                          lexer->string_status = false;
+                       }else{ //Se asume que es una variable.
+                          //Se procede a buscar nombre y valor.
+                          val = get_variable_value(lexer, false); // En este caso el segundo parametro es false para omitir la simbologia +=, -=, etc....
+                          if(val.type == TOKEN_NUMBER || val.type == TOKEN_CHAR){
+                             addOperatorNumber(operator, "+=", val.type == TOKEN_NUMBER ? val.number_value : (double)(int)val.char_value);
+                             lexer->char_status = false;
+                          }else if(val.type == TOKEN_STRING){
+                             addOperatorString(operator, "+=", val.string_value);
+                             free(val.string_value);
+                             lexer->string_status = false;
+                          }else{
+                             fprintf(stderr, "(err1) Error token desconocido\n");
+                          }
+                       }
+
+                    }else{
+                      fprintf(stderr, "(1) Error no se especifico el la variable.\n");
+                      exit(0);
+                    } 
+                }else{
+                   fprintf(stderr, "(2) Symbols error in operation.\n");
+                   exit(0);
+                }
+             }else{ // El token corresponde a una suma.
+                break;
+             }
+          }else if(c == '-'){
+             char b = lexer->text[lexer->pos + 1];
+             if(b == '-'){ //Se resta 1.
+                if(!isSymbols){ // Se verifica si ya se han declarado simbolos previos.
+                    lexer->pos+=2; // Se incrementa 2 para llegar al proximo caracter.
+                    addOperatorNumber(operator, "--", 1); // Se añade el operador de resta disminuyendo 1.
+                    isSymbols = true; // Se establece la declaracion de simbolos como verdadero.
+                }else{
+                  //Error simbolos ya declarados.
+                  fprintf(stderr, "(0) Symbols error in operation.\n");
+                  exit(0);
+                }
+             }else if(b == '=' && sub){ // Se resta el valor que le sigue.
+                if(!isSymbols){
+                    if(u0 > 0){
+                       lexer->pos += 2; // Se incrementa la posicion a 2 para seguir leyendo el codigo que sigue.
+                       while(lexer->text[lexer->pos] != '\0' && isspace(lexer->text[lexer->pos])){ // Se recorre el codigo hasta encontrar un caracter diferente a space y tab o \0
+                             lexer->pos++;
+                       }
+
+                       if(lexer->text[lexer->pos] == '\0'){ // Se verifica si el caracter en la posicion actual no indica el termino del codigo.
+                          fprintf(stderr, "(3) Error termino inesperado del codigo.\n"); // En el caso de que haya terminado se lanza un error indicando que hubo un termino inesperado.
+                          exit(0);
+                       }
+
+                       //En el caso de que el caracter sea valido completamente se procede a validar si es NUMBER, CHAR o STRING.
+                       Token val = get_token_digit_char_string(lexer); // Esto retornara un tipo NUMBER, STRING, CHAR o en el caso de que no coincida NONE.
+                       if(val.type == TOKEN_CHAR || val.type == TOKEN_NUMBER){ // En el caso de que sea NUMBER o CHAR se procede a añadir el operador incrementando el valor leido.
+                          addOperatorNumber(operator, "-=", val.type == TOKEN_NUMBER ? val.number_value : (double)(int)val.char_value);
+                          lexer->char_status = false;
+                       }else if(val.type == TOKEN_STRING){ // En el caso de que el tipo sea STRING se procede a añadir el operador y el valor.
+                          addOperatorString(operator, "-=", val.string_value);
+                          free(val.string_value);
+                          lexer->string_status = false;
+                       }else{ //Se asume que es una variable.
+                          //Se procede a buscar nombre y valor.
+                          val = get_variable_value(lexer, false); // En este caso el segundo parametro es false para omitir la simbologia +=, -=, etc....
+                          if(val.type == TOKEN_NUMBER || val.type == TOKEN_CHAR){
+                             addOperatorNumber(operator, "-=", val.type == TOKEN_NUMBER ? val.number_value : (double)(int)val.char_value);
+                             lexer->char_status = false;
+                          }else if(val.type == TOKEN_STRING){
+                             addOperatorString(operator, "-=", val.string_value);
+                             free(val.string_value);
+                             lexer->string_status = false;
+                          }else{
+                             fprintf(stderr, "(err1) Error token desconocido\n");
+                          }
+                       }
+
+                    }else{
+                      fprintf(stderr, "(1) Error no se especifico el la variable.\n");
+                      exit(0);
+                    } 
+                }else{
+                   fprintf(stderr, "(2) Symbols error in operation.\n");
+                   exit(0);
+                }
+             }else{ // El token corresponde a una suma.
+                break;
+             }
+          }else if(c == '*'){
+             char b = lexer->text[lexer->pos + 1];
+             if(b == '*'){ //En este caso si el simbolo que sigue es * es porque hay un error.
+                fprintf(stderr, "Error en la operacion ** no valida\n");
+                exit(0);
+             }else if(b == '=' && sub){ // Se multiplica por el valor que le sigue.
+                if(!isSymbols){
+                    if(u0 > 0){
+                       lexer->pos += 2; // Se incrementa la posicion a 2 para seguir leyendo el codigo que sigue.
+                       while(lexer->text[lexer->pos] != '\0' && isspace(lexer->text[lexer->pos])){ // Se recorre el codigo hasta encontrar un caracter diferente a space y tab o \0
+                             lexer->pos++;
+                       }
+
+                       if(lexer->text[lexer->pos] == '\0'){ // Se verifica si el caracter en la posicion actual no indica el termino del codigo.
+                          fprintf(stderr, "(3) Error termino inesperado del codigo.\n"); // En el caso de que haya terminado se lanza un error indicando que hubo un termino inesperado.
+                          exit(0);
+                       }
+
+                       //En el caso de que el caracter sea valido completamente se procede a validar si es NUMBER, CHAR o STRING.
+                       Token val = get_token_digit_char_string(lexer); // Esto retornara un tipo NUMBER, STRING, CHAR o en el caso de que no coincida NONE.
+                       if(val.type == TOKEN_CHAR || val.type == TOKEN_NUMBER){ // En el caso de que sea NUMBER o CHAR se procede a añadir el operador incrementando el valor leido.
+                          addOperatorNumber(operator, "*=", val.type == TOKEN_NUMBER ? val.number_value : (double)(int)val.char_value);
+                          lexer->char_status = false;
+                       }else if(val.type == TOKEN_STRING){ // En el caso de que el tipo sea STRING se procede a añadir el operador y el valor.
+                          addOperatorString(operator, "*=", val.string_value);
+                          free(val.string_value);
+                          lexer->string_status = false;
+                       }else{ //Se asume que es una variable.
+                          //Se procede a buscar nombre y valor.
+                          val = get_variable_value(lexer, false); // En este caso el segundo parametro es false para omitir la simbologia +=, -=, etc....
+                          if(val.type == TOKEN_NUMBER || val.type == TOKEN_CHAR){
+                             addOperatorNumber(operator, "*=", val.type == TOKEN_NUMBER ? val.number_value : (double)(int)val.char_value);
+                             lexer->char_status = false;
+                          }else if(val.type == TOKEN_STRING){
+                             addOperatorString(operator, "*=", val.string_value);
+                             free(val.string_value);
+                             lexer->string_status = false;
+                          }else{
+                             fprintf(stderr, "(err1) Error token desconocido\n");
+                          }
+                       }
+
+                    }else{
+                      fprintf(stderr, "(1) Error no se especifico el la variable.\n");
+                      exit(0);
+                    } 
+                }else{
+                   fprintf(stderr, "(2) Symbols error in operation.\n");
+                   exit(0);
+                }
+             }else{ // El token corresponde a una suma.
+                break;
+             }
+          }else if(c == '/'){
+             char b = lexer->text[lexer->pos + 1];
+             if(b == '/'){ //En este caso si el simbolo que sigue es / es porque hay un error.
+                fprintf(stderr, "Error en la operacion // no valida\n");
+                exit(0);
+             }else if(b == '=' && sub){ // Se divide por el valor que le sigue.
+                if(!isSymbols){
+                    if(u0 > 0){
+                       lexer->pos += 2; // Se incrementa la posicion a 2 para seguir leyendo el codigo que sigue.
+                       while(lexer->text[lexer->pos] != '\0' && isspace(lexer->text[lexer->pos])){ // Se recorre el codigo hasta encontrar un caracter diferente a space y tab o \0
+                             lexer->pos++;
+                       }
+
+                       if(lexer->text[lexer->pos] == '\0'){ // Se verifica si el caracter en la posicion actual no indica el termino del codigo.
+                          fprintf(stderr, "(3) Error termino inesperado del codigo.\n"); // En el caso de que haya terminado se lanza un error indicando que hubo un termino inesperado.
+                          exit(0);
+                       }
+
+                       //En el caso de que el caracter sea valido completamente se procede a validar si es NUMBER, CHAR o STRING.
+                       Token val = get_token_digit_char_string(lexer); // Esto retornara un tipo NUMBER, STRING, CHAR o en el caso de que no coincida NONE.
+                       if(val.type == TOKEN_CHAR || val.type == TOKEN_NUMBER){ // En el caso de que sea NUMBER o CHAR se procede a añadir el operador incrementando el valor leido.
+                          addOperatorNumber(operator, "/=", val.type == TOKEN_NUMBER ? val.number_value : (double)(int)val.char_value);
+                          lexer->char_status = false;
+                       }else if(val.type == TOKEN_STRING){ // En el caso de que el tipo sea STRING se procede a añadir el operador y el valor.
+                          addOperatorString(operator, "/=", val.string_value);
+                          free(val.string_value);
+                          lexer->string_status = false;
+                       }else{ //Se asume que es una variable.
+                          //Se procede a buscar nombre y valor.
+                          val = get_variable_value(lexer, false); // En este caso el segundo parametro es false para omitir la simbologia +=, -=, etc....
+                          if(val.type == TOKEN_NUMBER || val.type == TOKEN_CHAR){
+                             addOperatorNumber(operator, "/=", val.type == TOKEN_NUMBER ? val.number_value : (double)(int)val.char_value);
+                             lexer->char_status = false;
+                          }else if(val.type == TOKEN_STRING){
+                             addOperatorString(operator, "/=", val.string_value);
+                             free(val.string_value);
+                             lexer->string_status = false;
+                          }else{
+                             fprintf(stderr, "(err1) Error token desconocido\n");
+                          }
+                       }
+
+                    }else{
+                      fprintf(stderr, "(1) Error no se especifico el la variable.\n");
+                      exit(0);
+                    } 
+                }else{
+                   fprintf(stderr, "(2) Symbols error in operation.\n");
+                   exit(0);
+                }
+             }else{ // El token corresponde a una suma.
+                break;
+             }
+          }else if(c == '%'){ 
+             char b = lexer->text[lexer->pos + 1];
+             if(b == '%'){ //En este caso si el simbolo que sigue es % es porque hay un error.
+                fprintf(stderr, "Error en la operacion %% no valida\n");
+                exit(0);
+             }else if(b == '=' && sub){ // Resto del el valor que le sigue.
+                if(!isSymbols){
+                    if(u0 > 0){
+                       lexer->pos += 2; // Se incrementa la posicion a 2 para seguir leyendo el codigo que sigue.
+                       while(lexer->text[lexer->pos] != '\0' && isspace(lexer->text[lexer->pos])){ // Se recorre el codigo hasta encontrar un caracter diferente a space y tab o \0
+                             lexer->pos++;
+                       }
+
+                       if(lexer->text[lexer->pos] == '\0'){ // Se verifica si el caracter en la posicion actual no indica el termino del codigo.
+                          fprintf(stderr, "(3) Error termino inesperado del codigo.\n"); // En el caso de que haya terminado se lanza un error indicando que hubo un termino inesperado.
+                          exit(0);
+                       }
+
+                       //En el caso de que el caracter sea valido completamente se procede a validar si es NUMBER, CHAR o STRING.
+                       Token val = get_token_digit_char_string(lexer); // Esto retornara un tipo NUMBER, STRING, CHAR o en el caso de que no coincida NONE.
+                       if(val.type == TOKEN_CHAR || val.type == TOKEN_NUMBER){ // En el caso de que sea NUMBER o CHAR se procede a añadir el operador incrementando el valor leido.
+                          addOperatorNumber(operator, "%=", val.type == TOKEN_NUMBER ? val.number_value : (double)(int)val.char_value);
+                          lexer->char_status = false;
+                       }else if(val.type == TOKEN_STRING){ // En el caso de que el tipo sea STRING se procede a añadir el operador y el valor.
+                          addOperatorString(operator, "%=", val.string_value);
+                          free(val.string_value);
+                          lexer->string_status = false;
+                       }else{ //Se asume que es una variable.
+                          //Se procede a buscar nombre y valor.
+                          val = get_variable_value(lexer, false); // En este caso el segundo parametro es false para omitir la simbologia +=, -=, etc....
+                          if(val.type == TOKEN_NUMBER || val.type == TOKEN_CHAR){
+                             addOperatorNumber(operator, "%=", val.type == TOKEN_NUMBER ? val.number_value : (double)(int)val.char_value);
+                             lexer->char_status = false;
+                          }else if(val.type == TOKEN_STRING){
+                             addOperatorString(operator, "%=", val.string_value);
+                             free(val.string_value);
+                             lexer->string_status = false;
+                          }else{
+                             fprintf(stderr, "(err1) Error token desconocido\n");
+                          }
+                       }
+
+                    }else{
+                      fprintf(stderr, "(1) Error no se especifico el la variable.\n");
+                      exit(0);
+                    } 
+                }else{
+                   fprintf(stderr, "(2) Symbols error in operation.\n");
+                   exit(0);
+                }
+             }else{ // El token corresponde a una suma.
+                break;
+             }
+          }else if(c == '&'){
+            char b = lexer->text[lexer->pos + 1];
+             if(b == '&'){ //En este caso se detecta un operador logico.
+                lexer->pos--;
+                break;
+             }else if(b == '=' && sub){ // Se incrementa el valor que le sigue.
+                if(!isSymbols){
+                    if(u0 > 0){
+                       lexer->pos += 2; // Se incrementa la posicion a 2 para seguir leyendo el codigo que sigue.
+                       while(lexer->text[lexer->pos] != '\0' && isspace(lexer->text[lexer->pos])){ // Se recorre el codigo hasta encontrar un caracter diferente a space y tab o \0
+                             lexer->pos++;
+                       }
+
+                       if(lexer->text[lexer->pos] == '\0'){ // Se verifica si el caracter en la posicion actual no indica el termino del codigo.
+                          fprintf(stderr, "(3) Error termino inesperado del codigo.\n"); // En el caso de que haya terminado se lanza un error indicando que hubo un termino inesperado.
+                          exit(0);
+                       }
+
+                       //En el caso de que el caracter sea valido completamente se procede a validar si es NUMBER, CHAR o STRING.
+                       Token val = get_token_digit_char_string(lexer); // Esto retornara un tipo NUMBER, STRING, CHAR o en el caso de que no coincida NONE.
+                       if(val.type == TOKEN_CHAR || val.type == TOKEN_NUMBER){ // En el caso de que sea NUMBER o CHAR se procede a añadir el operador incrementando el valor leido.
+                          addOperatorNumber(operator, "&=", val.type == TOKEN_NUMBER ? val.number_value : (double)(int)val.char_value);
+                          lexer->char_status = false;
+                       }else if(val.type == TOKEN_STRING){ // En el caso de que el tipo sea STRING se procede a añadir el operador y el valor.
+                          addOperatorString(operator, "&=", val.string_value);
+                          free(val.string_value);
+                          lexer->string_status = false;
+                       }else{ //Se asume que es una variable.
+                          //Se procede a buscar nombre y valor.
+                          val = get_variable_value(lexer, false); // En este caso el segundo parametro es false para omitir la simbologia +=, -=, etc....
+                          if(val.type == TOKEN_NUMBER || val.type == TOKEN_CHAR){
+                             addOperatorNumber(operator, "&=", val.type == TOKEN_NUMBER ? val.number_value : (double)(int)val.char_value);
+                             lexer->char_status = false;
+                          }else if(val.type == TOKEN_STRING){
+                             addOperatorString(operator, "&=", val.string_value);
+                             free(val.string_value);
+                             lexer->string_status = false;
+                          }else{
+                             fprintf(stderr, "(err1) Error token desconocido\n");
+                          }
+                       }
+
+                    }else{
+                      fprintf(stderr, "(1) Error no se especifico el la variable.\n");
+                      exit(0);
+                    } 
+                }else{
+                   fprintf(stderr, "(2) Symbols error in operation.\n");
+                   exit(0);
+                }
+             }else{ // El token corresponde a una suma.
+                break;
+             }
+          }else if(c == '|'){
+             char b = lexer->text[lexer->pos + 1];
+             if(b == '|'){ //En este caso se detecta un operador logico.
+                lexer->pos--;
+                break;
+             }else if(b == '=' && sub){ // Se | el valor que le sigue.
+                if(!isSymbols){
+                    if(u0 > 0){
+                       lexer->pos += 2; // Se incrementa la posicion a 2 para seguir leyendo el codigo que sigue.
+                       while(lexer->text[lexer->pos] != '\0' && isspace(lexer->text[lexer->pos])){ // Se recorre el codigo hasta encontrar un caracter diferente a space y tab o \0
+                             lexer->pos++;
+                       }
+
+                       if(lexer->text[lexer->pos] == '\0'){ // Se verifica si el caracter en la posicion actual no indica el termino del codigo.
+                          fprintf(stderr, "(3) Error termino inesperado del codigo.\n"); // En el caso de que haya terminado se lanza un error indicando que hubo un termino inesperado.
+                          exit(0);
+                       }
+
+                       //En el caso de que el caracter sea valido completamente se procede a validar si es NUMBER, CHAR o STRING.
+                       Token val = get_token_digit_char_string(lexer); // Esto retornara un tipo NUMBER, STRING, CHAR o en el caso de que no coincida NONE.
+                       if(val.type == TOKEN_CHAR || val.type == TOKEN_NUMBER){ // En el caso de que sea NUMBER o CHAR se procede a añadir el operador incrementando el valor leido.
+                          addOperatorNumber(operator, "|=", val.type == TOKEN_NUMBER ? val.number_value : (double)(int)val.char_value);
+                          lexer->char_status = false;
+                       }else if(val.type == TOKEN_STRING){ // En el caso de que el tipo sea STRING se procede a añadir el operador y el valor.
+                          addOperatorString(operator, "|=", val.string_value);
+                          free(val.string_value);
+                          lexer->string_status = false;
+                       }else{ //Se asume que es una variable.
+                          //Se procede a buscar nombre y valor.
+                          val = get_variable_value(lexer, false); // En este caso el segundo parametro es false para omitir la simbologia +=, -=, etc....
+                          if(val.type == TOKEN_NUMBER || val.type == TOKEN_CHAR){
+                             addOperatorNumber(operator, "|=", val.type == TOKEN_NUMBER ? val.number_value : (double)(int)val.char_value);
+                             lexer->char_status = false;
+                          }else if(val.type == TOKEN_STRING){
+                             addOperatorString(operator, "|=", val.string_value);
+                             free(val.string_value);
+                             lexer->string_status = false;
+                          }else{
+                             fprintf(stderr, "(err1) Error token desconocido\n");
+                          }
+                       }
+
+                    }else{
+                      fprintf(stderr, "(1) Error no se especifico el la variable.\n");
+                      exit(0);
+                    } 
+                }else{
+                   fprintf(stderr, "(2) Symbols error in operation.\n");
+                   exit(0);
+                }
+             }else{ // El token corresponde a una suma.
+                break;
+             }
+          }else if(c == '='){
+            printf("Llegue aqui\n");
+            char b = lexer->text[lexer->pos + 1];
+             if(b == '='){ //En este caso se toma como un operador logico por lo tanto se frena el proceso.
+                lexer->pos--; // Se resta uno para que el operador logico quede completo. 
+                break;
+             }else if(b == '=' && sub){ // Se asigna el valor que le sigue.
+                if(!isSymbols){
+                    if(u0 > 0){
+                       lexer->pos += 2; // Se incrementa la posicion a 2 para seguir leyendo el codigo que sigue.
+                       while(lexer->text[lexer->pos] != '\0' && isspace(lexer->text[lexer->pos])){ // Se recorre el codigo hasta encontrar un caracter diferente a space y tab o \0
+                             lexer->pos++;
+                       }
+
+                       if(lexer->text[lexer->pos] == '\0'){ // Se verifica si el caracter en la posicion actual no indica el termino del codigo.
+                          fprintf(stderr, "(3) Error termino inesperado del codigo.\n"); // En el caso de que haya terminado se lanza un error indicando que hubo un termino inesperado.
+                          exit(0);
+                       }
+
+                       //En el caso de que el caracter sea valido completamente se procede a validar si es NUMBER, CHAR o STRING.
+                       Token val = get_token_digit_char_string(lexer); // Esto retornara un tipo NUMBER, STRING, CHAR o en el caso de que no coincida NONE.
+                       if(val.type == TOKEN_CHAR || val.type == TOKEN_NUMBER){ // En el caso de que sea NUMBER o CHAR se procede a añadir el operador incrementando el valor leido.
+                          addOperatorNumber(operator, "=", val.type == TOKEN_NUMBER ? val.number_value : (double)(int)val.char_value);
+                          lexer->char_status = false;
+                       }else if(val.type == TOKEN_STRING){ // En el caso de que el tipo sea STRING se procede a añadir el operador y el valor.
+                          addOperatorString(operator, "=", val.string_value);
+                          free(val.string_value);
+                          lexer->string_status = false;
+                       }else{ //Se asume que es una variable.
+                          //Se procede a buscar nombre y valor.
+                          val = get_variable_value(lexer, false); // En este caso el segundo parametro es false para omitir la simbologia +=, -=, etc....
+                          if(val.type == TOKEN_NUMBER || val.type == TOKEN_CHAR){
+                             addOperatorNumber(operator, "=", val.type == TOKEN_NUMBER ? val.number_value : (double)(int)val.char_value);
+                             lexer->char_status = false;
+                          }else if(val.type == TOKEN_STRING){
+                             addOperatorString(operator, "=", val.string_value);
+                             free(val.string_value);
+                             lexer->string_status = false;
+                          }else{
+                             fprintf(stderr, "(err1) Error token desconocido\n");
+                          }
+                       }
+
+                    }else{
+                      fprintf(stderr, "(1) Error no se especifico el la variable.\n");
+                      exit(0);
+                    } 
+                }else{
+                   fprintf(stderr, "(2) Symbols error in operation.\n");
+                   exit(0);
+                }
+             }else{ // El token corresponde a una suma.
+                break;
+             }
+          }else if(c == '^'){
+             char b = lexer->text[lexer->pos + 1];
+             if(b == '^'){ //En este caso si el simbolo que sigue es ^ es porque hay un error.
+                fprintf(stderr, "Error en la operacion ^^ no valida\n");
+                exit(0);
+             }else if(b == '=' && sub){ // Se ^ el valor que le sigue.
+                if(!isSymbols){
+                    if(u0 > 0){
+                       lexer->pos += 2; // Se incrementa la posicion a 2 para seguir leyendo el codigo que sigue.
+                       while(lexer->text[lexer->pos] != '\0' && isspace(lexer->text[lexer->pos])){ // Se recorre el codigo hasta encontrar un caracter diferente a space y tab o \0
+                             lexer->pos++;
+                       }
+
+                       if(lexer->text[lexer->pos] == '\0'){ // Se verifica si el caracter en la posicion actual no indica el termino del codigo.
+                          fprintf(stderr, "(3) Error termino inesperado del codigo.\n"); // En el caso de que haya terminado se lanza un error indicando que hubo un termino inesperado.
+                          exit(0);
+                       }
+
+                       //En el caso de que el caracter sea valido completamente se procede a validar si es NUMBER, CHAR o STRING.
+                       Token val = get_token_digit_char_string(lexer); // Esto retornara un tipo NUMBER, STRING, CHAR o en el caso de que no coincida NONE.
+                       if(val.type == TOKEN_CHAR || val.type == TOKEN_NUMBER){ // En el caso de que sea NUMBER o CHAR se procede a añadir el operador incrementando el valor leido.
+                          addOperatorNumber(operator, "^=", val.type == TOKEN_NUMBER ? val.number_value : (double)(int)val.char_value);
+                          lexer->char_status = false;
+                       }else if(val.type == TOKEN_STRING){ // En el caso de que el tipo sea STRING se procede a añadir el operador y el valor.
+                          addOperatorString(operator, "^=", val.string_value);
+                          free(val.string_value);
+                          lexer->string_status = false;
+                       }else{ //Se asume que es una variable.
+                          //Se procede a buscar nombre y valor.
+                          val = get_variable_value(lexer, false); // En este caso el segundo parametro es false para omitir la simbologia +=, -=, etc....
+                          if(val.type == TOKEN_NUMBER || val.type == TOKEN_CHAR){
+                             addOperatorNumber(operator, "^=", val.type == TOKEN_NUMBER ? val.number_value : (double)(int)val.char_value);
+                             lexer->char_status = false;
+                          }else if(val.type == TOKEN_STRING){
+                             addOperatorString(operator, "^=", val.string_value);
+                             free(val.string_value);
+                             lexer->string_status = false;
+                          }else{
+                             fprintf(stderr, "(err1) Error token desconocido\n");
+                          }
+                       }
+
+                    }else{
+                      fprintf(stderr, "(1) Error no se especifico el la variable.\n");
+                      exit(0);
+                    } 
+                }else{
+                   fprintf(stderr, "(2) Symbols error in operation.\n");
+                   exit(0);
+                }
+             }else{ // El token corresponde a una suma.
+                break;
+             }
+          }else{
+             var_name[u0] = c;
+             lexer->pos++;
+             u0++;
+          }
+    }
+
+    //Verificar si existe y obtener valor de la variable.
+    //En el caso de que la variable sea numerica y los simbolos sean ++ o --, de incrementa 1 o se discrimina 1
+
+    free(var_name);
+    Token value = {TOKEN_NUMBER};
+    value.number_value = 12;
+
+    //----------------TEST OPERATOR-------------------
+    //Esto solo es una prueba, me debo basar en esto para hacer la implementacion real.
+    Operator **pos = &operator;
+    while(*pos && (*pos)->symbols){ // %, &, |, =, ^
+          if(strcmp((*pos)->symbols, "++") == 0 || strcmp((*pos)->symbols, "+=") == 0){
+             if((*pos)->status == NUMBER_STATUS){ 
+                value.number_value += (*pos)->number_value;
+             }else if((*pos)->status == STRING_STATUS){
+
+             }else if((*pos)->status == VAR_STATUS){
+
+             }
+          }else if(strcmp((*pos)->symbols, "--") == 0 || strcmp((*pos)->symbols, "-=") == 0){
+             if((*pos)->status == NUMBER_STATUS){ 
+                value.number_value -= (*pos)->number_value;
+             }else if((*pos)->status == STRING_STATUS){
+
+             }else if((*pos)->status == VAR_STATUS){
+
+             }
+          }else if(strcmp((*pos)->symbols, "*=") == 0){
+             if((*pos)->status == NUMBER_STATUS){ 
+                value.number_value *= (*pos)->number_value;
+             }else if((*pos)->status == STRING_STATUS){
+
+             }else if((*pos)->status == VAR_STATUS){
+
+             }
+          }else if(strcmp((*pos)->symbols, "/=") == 0){
+             if((*pos)->status == NUMBER_STATUS){ 
+                value.number_value /= (*pos)->number_value;
+             }else if((*pos)->status == STRING_STATUS){
+
+             }else if((*pos)->status == VAR_STATUS){
+
+             }
+          }else if(strcmp((*pos)->symbols, "%=") == 0){
+             if((*pos)->status == NUMBER_STATUS){ 
+                value.number_value = fmod(value.number_value, (*pos)->number_value);
+             }else if((*pos)->status == STRING_STATUS){
+
+             }else if((*pos)->status == VAR_STATUS){
+
+             }
+          }else if(strcmp((*pos)->symbols, "&=") == 0){
+             if((*pos)->status == NUMBER_STATUS){ 
+                long l0 = (long)value.number_value;
+                long l1 = (long)(*pos)->number_value;
+                value.number_value = (double)(l0 & l1);
+             }else if((*pos)->status == STRING_STATUS){
+
+             }else if((*pos)->status == VAR_STATUS){
+
+             }
+          }else if(strcmp((*pos)->symbols, "|=") == 0){
+             if((*pos)->status == NUMBER_STATUS){ 
+                long l0 = (long)value.number_value;
+                long l1 = (long)(*pos)->number_value;
+                value.number_value = (double)(l0 | l1);
+             }else if((*pos)->status == STRING_STATUS){
+
+             }else if((*pos)->status == VAR_STATUS){
+
+             }
+          }else if(strcmp((*pos)->symbols, "=") == 0){
+             if((*pos)->status == NUMBER_STATUS){ 
+                value.number_value = (*pos)->number_value;
+             }else if((*pos)->status == STRING_STATUS){
+
+             }else if((*pos)->status == VAR_STATUS){
+
+             }
+          }else if(strcmp((*pos)->symbols, "^=") == 0){
+             if((*pos)->status == NUMBER_STATUS){ 
+                long l0 = (long)value.number_value;
+                long l1 = (long)(*pos)->number_value;
+                value.number_value = (double)(l0 ^ l1);
+             }else if((*pos)->status == STRING_STATUS){
+
+             }else if((*pos)->status == VAR_STATUS){
+
+             }
+          }else{
+             fprintf(stderr, "Error simbolo no existe\n");
+             exit(0);
+          }
+          pos = &((*pos)->next);
+    }
+    freeOperator(operator);
+    //-------------------END TEST---------------------
+
+    lexer->char_status = false;
+    lexer->string_status = false;
+    lexer->current_token = value;
+    return value;
+}
+
+Token get_token_digit_char_string(Lexer *lexer){
+   if (isdigit(lexer->text[lexer->pos]) || lexer->text[lexer->pos] == '.') {
+        return get_number_token(lexer);
+    }
+
+    if(lexer->text[lexer->pos] == '\''){
+        Token n = get_string_token(lexer);
+        if(strlen(n.string_value) < 3 && strlen(n.string_value) > 0){
+           if(strlen(n.string_value) == 2){
+              if(n.string_value[0] == '\\'){
+                 Token token = { TOKEN_CHAR };
+                 token.char_value = n.string_value[1];
+                 lexer->current_token = token;
+                 lexer->string_status = false;
+                 lexer->char_status = true;
+                 free(n.string_value);
+                 return token;
+              }else{
+                printf("Error de declaracion de caracter: %s\n", n.string_value);
+                exit(0);     
+              }
+           }else{
+              Token token = { TOKEN_CHAR };
+              token.char_value = n.string_value[0];
+              lexer->current_token = token;
+              lexer->string_status = false;
+              lexer->char_status = true;
+              free(n.string_value);
+              return token;
+           }
+        }else{
+           printf("Error de declaracion de caracter.\n");
+           exit(0);
+        }
+    }else if(lexer->text[lexer->pos] == '"') {
+        lexer->string_status = true;
+        return get_string_token(lexer);
+    }
+    Token end = {TOKEN_NONE};
+    return end;
 }
 
 // Implementación del lexer
@@ -167,6 +1030,10 @@ Token get_next_token(Lexer* lexer) {
     }else if(lexer->text[lexer->pos] == '"') {
         lexer->string_status = true;
         return get_string_token(lexer);
+    }
+
+    if(is_variable_value(lexer)){
+       return get_variable_value(lexer, true);
     }
 
     char current = lexer->text[lexer->pos++];
