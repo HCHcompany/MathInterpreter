@@ -841,7 +841,7 @@ Token get_variable_value(Lexer *lexer, bool sub){
     value.number_value = 12;
 
     //----------------TEST OPERATOR-------------------
-    //Esto solo es una prueba, me debo basar en esto para hacer la implementacion real.
+    //Esto solo es una prueba, me debo basar en esto para hacer la implementacion real con manejo de variables reales.
     Operator **pos = &operator;
     while(*pos && (*pos)->symbols){ // %, &, |, =, ^
           if(strcmp((*pos)->symbols, "++") == 0 || strcmp((*pos)->symbols, "+=") == 0){
