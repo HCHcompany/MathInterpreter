@@ -672,9 +672,11 @@ Token get_variable_value(Lexer *lexer, bool sub){
           }else if(c == '|'){
              char b = lexer->text[lexer->pos + 1];
              if(b == '|'){ //En este caso se detecta un operador logico.
+                printf("POS0\n");
                 lexer->pos--;
                 break;
              }else if(b == '=' && sub){ // Se | el valor que le sigue.
+                printf("POS1\n");
                 if(!isSymbols){
                     if(u0 > 0){
                        lexer->pos += 2; // Se incrementa la posicion a 2 para seguir leyendo el codigo que sigue.
@@ -720,6 +722,7 @@ Token get_variable_value(Lexer *lexer, bool sub){
                    exit(0);
                 }
              }else{ // El token corresponde a una suma.
+                printf("POS2\n");
                 break;
              }
           }else if(c == '='){
@@ -839,11 +842,13 @@ Token get_variable_value(Lexer *lexer, bool sub){
     free(var_name);
     Token value = {TOKEN_NUMBER};
     value.number_value = 12;
-
+    
+    int a = 0;
+    
     //----------------TEST OPERATOR-------------------
     //Esto solo es una prueba, me debo basar en esto para hacer la implementacion real con manejo de variables reales.
     Operator **pos = &operator;
-    while(*pos && (*pos)->symbols){ // %, &, |, =, ^
+    while(*pos && (*pos)->symbols){ //
           if(strcmp((*pos)->symbols, "++") == 0 || strcmp((*pos)->symbols, "+=") == 0){
              if((*pos)->status == NUMBER_STATUS){ 
                 value.number_value += (*pos)->number_value;
