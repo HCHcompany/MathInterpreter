@@ -1,3 +1,27 @@
+/** 
+ * BOXLANG MATH INTERPRETER
+ * @author Jonathann Vasquez
+ * @date 26/06/2024
+ * 
+ * Este codigo es implementable a cualquier lenguaje de programacion, pero debe ser modificado para manejar variables en el entorno
+ * donde se valla a implementar, si estas creando tu propio lenguaje debes ir a la funcion "get_variable_value", para adaptar su 
+ * comportamiento a tu lenguaje de programacion, te dejo un codigo general, con pruebas basicas, a partir de ahi debes tu debes basarte
+ * para implementar correctamente el entorno en tu proyecto, las demas funciones funcionaran correctamente, sin problemas, solo debes 
+ * trabajar con la funcion que te especifique anteriormente.
+ * 
+ * Si quieres añadir o modificar este codigo porque no te gusta la logica en los simbolos, o simplemente quieres añadir nuevas funciones
+ * solo hazlo, te sugiero que aproveches este codigo ahora que lo encontraste, ya que se puede sacar del medio publico, el codigo no se
+ * encuentra optimizado, si ves que lo puedes reducir hazlo, de alguna manera se puede hacer lo mismo pero con menos codigo.
+ * 
+ * Este interprete maneja valores numericos (double), cadenas de texto (char *) y caracteres (char), tiene funciones de concatenacion, operaciones
+ * logicas, aritmeticas, desplazamiento, y entre otras funciones, este interprete es parte del lenguaje BoxLang, el cual contiene muchas funciones
+ * para cadenas de texto sin necesidad de una funcion, solo simbolos, como reemplazar un fragmento de la cadena por ejemplo: "Jonathann Vasquez" | "Vasquez$Torres"
+ * o "Jonathann Vasquez" / " $1" o  "Jonathann Vasquez" - "Vasquez", en el primer caso seria el resultado "Jonathann Torres" en el segundo caso el
+ * resultado seria "Vasquez" y en ultimo el resultado seria "Jonathann ", estas son algunas de las funciones que contiene con simbolos, tambien
+ * se puede sacar el tamaño de una cadena o el porcentaje de una cadena, tu trabajo es examinar el codigo para descubrir sus funciones, es una
+ * tarea que te dejo a ti, exito!!.
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <ctype.h>
@@ -70,12 +94,19 @@ typedef enum{
    NONE_STATUS,
 }OPERATOR_STATUS;
 
+typedef enum{
+   OPERATOR_START,
+   OPERATOR_END,
+   OPERATOR_NA,
+}OPERATOR_SPECIAL_POS;
+
 typedef struct Operator Operator;
 typedef struct Operator{
    char *symbols;
    double number_value;
    char *str_value;
    char *var_value;
+   OPERATOR_SPECIAL_POS pos;
    OPERATOR_STATUS status;
    Operator *prev;
    Operator *next;
@@ -163,6 +194,7 @@ void addOperatorNumber(Operator *operator, const char *symbols, double value){
                 strcpy((*pos)->symbols, symbols);
                 (*pos)->number_value = value;
                 (*pos)->status = NUMBER_STATUS;
+                (*pos)->pos = OPERATOR_NA;
                 break;
             }else{
                prev = pos;
@@ -181,6 +213,45 @@ void addOperatorNumber(Operator *operator, const char *symbols, double value){
              strcpy((*pos)->symbols, symbols);
              (*pos)->number_value = value;
              (*pos)->status = NUMBER_STATUS;
+             (*pos)->pos = OPERATOR_NA;
+             (*pos)->str_value = NULL;
+             (*pos)->var_value = NULL;
+             break;
+         }
+   }
+}
+
+void addOperatorNumberSpecial(Operator *operator, const char *symbols, double value, OPERATOR_SPECIAL_POS position){
+   Operator **pos = &operator;
+   Operator **prev = NULL;
+   while(true){
+         if(*pos){
+            if(!((*pos)->symbols)){
+                (*pos)->symbols = (char *)malloc(sizeof(char) * (strlen(symbols) + 1));
+                memset((*pos)->symbols, '\0', sizeof(char) * (strlen(symbols) + 1));
+                strcpy((*pos)->symbols, symbols);
+                (*pos)->number_value = value;
+                (*pos)->status = NUMBER_STATUS;
+                (*pos)->pos = position;
+                break;
+            }else{
+               prev = pos;
+               pos = &((*pos)->next);
+            }
+         }else{
+            (*pos) = (Operator *)malloc(sizeof(Operator));
+            (*pos)->next = NULL;
+            if(prev){
+               (*pos)->prev = *prev;
+            }else{
+               (*pos)->prev = NULL;
+            }
+            (*pos)->symbols = (char *)malloc(sizeof(char) * (strlen(symbols) + 1));
+             memset((*pos)->symbols, '\0', sizeof(char) * (strlen(symbols) + 1));
+             strcpy((*pos)->symbols, symbols);
+             (*pos)->number_value = value;
+             (*pos)->status = NUMBER_STATUS;
+             (*pos)->pos = position;
              (*pos)->str_value = NULL;
              (*pos)->var_value = NULL;
              break;
@@ -201,6 +272,7 @@ void addOperatorString(Operator *operator, const char *symbols, const char *valu
                 memset((*pos)->str_value, '\0', sizeof(char) * (strlen(value) + 1));
                 strcpy((*pos)->str_value, value);
                 (*pos)->status = STRING_STATUS;
+                (*pos)->pos = OPERATOR_NA;
                 break;
             }else{
                prev = pos;
@@ -222,6 +294,49 @@ void addOperatorString(Operator *operator, const char *symbols, const char *valu
              memset((*pos)->str_value, '\0', sizeof(char) * (strlen(value) + 1));
              strcpy((*pos)->str_value, value);
              (*pos)->status = STRING_STATUS;
+             (*pos)->pos = OPERATOR_NA;
+             (*pos)->var_value = NULL;
+             break;
+         }
+   }
+}
+
+void addOperatorStringSpecial(Operator *operator, const char *symbols, const char *value, OPERATOR_SPECIAL_POS position){
+   Operator **pos = &operator;
+   Operator **prev = NULL;
+   while(true){
+         if(*pos){
+            if(!((*pos)->symbols)){
+                (*pos)->symbols = (char *)malloc(sizeof(char) * (strlen(symbols) + 1));
+                memset((*pos)->symbols, '\0', sizeof(char) * (strlen(symbols) + 1));
+                strcpy((*pos)->symbols, symbols);
+                (*pos)->str_value = (char *)malloc(sizeof(char) * (strlen(value) + 1));
+                memset((*pos)->str_value, '\0', sizeof(char) * (strlen(value) + 1));
+                strcpy((*pos)->str_value, value);
+                (*pos)->status = STRING_STATUS;
+                (*pos)->pos = position;
+                break;
+            }else{
+               prev = pos;
+               pos = &((*pos)->next);
+            }
+         }else{
+            (*pos) = (Operator *)malloc(sizeof(Operator));
+            (*pos)->next = NULL;
+            if(prev){
+               (*pos)->prev = *prev;
+            }else{
+               (*pos)->prev = NULL;
+            }
+            (*pos)->symbols = (char *)malloc(sizeof(char) * (strlen(symbols) + 1));
+             memset((*pos)->symbols, '\0', sizeof(char) * (strlen(symbols) + 1));
+             strcpy((*pos)->symbols, symbols);
+             (*pos)->number_value = 0;
+             (*pos)->str_value = (char *)malloc(sizeof(char) * (strlen(value) + 1));
+             memset((*pos)->str_value, '\0', sizeof(char) * (strlen(value) + 1));
+             strcpy((*pos)->str_value, value);
+             (*pos)->status = STRING_STATUS;
+             (*pos)->pos = position;
              (*pos)->var_value = NULL;
              break;
          }
@@ -331,9 +446,9 @@ Token get_variable_value(Lexer *lexer, bool sub){
     memset(var_name, '\0', sizeof(char) * (strlen(lexer->text) + 1));
     int u0 = 0; // Esta es la posicion del puntero donde se guarda el nombre de la variable.
     bool isSymbols = false; // Este especifica si ya se a declarado un simbolo "++" o "--" dentro de la operacion.
-    while(lexer->text[lexer->pos] != '\'' && lexer->text[lexer->pos] != '"' && lexer->text[lexer->pos] != '<' &&  lexer->text[lexer->pos] != '?' && 
-          lexer->text[lexer->pos] != '(' && lexer->text[lexer->pos] != ')' && lexer->text[lexer->pos] != '~' && lexer->text[lexer->pos] != '!' && 
-          lexer->text[lexer->pos] != '>' && lexer->text[lexer->pos] != ':' && lexer->text[lexer->pos] != '\0'){
+    while(lexer->text[lexer->pos] != '\'' && lexer->text[lexer->pos] != '"' &&  lexer->text[lexer->pos] != '?' && lexer->text[lexer->pos] != '(' &&
+          lexer->text[lexer->pos] != ')' && lexer->text[lexer->pos] != '~' && lexer->text[lexer->pos] != '!' && lexer->text[lexer->pos] != ':' && 
+          lexer->text[lexer->pos] != '\0'){
           char c = lexer->text[lexer->pos];
           if(c == ' ' || c == '\t'){
              lexer->pos++;
@@ -342,7 +457,11 @@ Token get_variable_value(Lexer *lexer, bool sub){
              if(b == '+'){ //Se incrementa 1.
                 if(!isSymbols){ // Se verifica si ya se han declarado simbolos previos.
                     lexer->pos+=2; // Se incrementa 2 para llegar al proximo caracter.
-                    addOperatorNumber(operator, "++", 1); // Se añade el operador de suma incrementando 1.
+                    if(u0 > 0){
+                       addOperatorNumberSpecial(operator, "++", 1, OPERATOR_END); // Se añade el operador de suma incrementando 1 con operando al final.  
+                    }else{
+                       addOperatorNumberSpecial(operator, "++", 1, OPERATOR_START); // Se añade el operador de suma incrementando 1 con operando al principio.  
+                    }
                     isSymbols = true; // Se establece la declaracion de simbolos como verdadero.
                 }else{
                   //Error simbolos ya declarados.
@@ -358,7 +477,7 @@ Token get_variable_value(Lexer *lexer, bool sub){
                        }
 
                        if(lexer->text[lexer->pos] == '\0'){ // Se verifica si el caracter en la posicion actual no indica el termino del codigo.
-                          fprintf(stderr, "(3) Error termino inesperado del codigo.\n"); // En el caso de que haya terminado se lanza un error indicando que hubo un termino inesperado.
+                          fprintf(stderr, "(3+) Error termino inesperado del codigo.\n"); // En el caso de que haya terminado se lanza un error indicando que hubo un termino inesperado.
                           exit(0);
                        }
 
@@ -402,7 +521,11 @@ Token get_variable_value(Lexer *lexer, bool sub){
              if(b == '-'){ //Se resta 1.
                 if(!isSymbols){ // Se verifica si ya se han declarado simbolos previos.
                     lexer->pos+=2; // Se incrementa 2 para llegar al proximo caracter.
-                    addOperatorNumber(operator, "--", 1); // Se añade el operador de resta disminuyendo 1.
+                    if(u0 > 0){
+                       addOperatorNumberSpecial(operator, "--", 1, OPERATOR_END); // Se añade el operador de resta disminuyendo 1 con operando al final.  
+                    }else{
+                       addOperatorNumberSpecial(operator, "--", 1, OPERATOR_START); // Se añade el operador de resta disminuyendo 1 con operando al principio.  
+                    }
                     isSymbols = true; // Se establece la declaracion de simbolos como verdadero.
                 }else{
                   //Error simbolos ya declarados.
@@ -418,7 +541,7 @@ Token get_variable_value(Lexer *lexer, bool sub){
                        }
 
                        if(lexer->text[lexer->pos] == '\0'){ // Se verifica si el caracter en la posicion actual no indica el termino del codigo.
-                          fprintf(stderr, "(3) Error termino inesperado del codigo.\n"); // En el caso de que haya terminado se lanza un error indicando que hubo un termino inesperado.
+                          fprintf(stderr, "(3-) Error termino inesperado del codigo.\n"); // En el caso de que haya terminado se lanza un error indicando que hubo un termino inesperado.
                           exit(0);
                        }
 
@@ -471,7 +594,7 @@ Token get_variable_value(Lexer *lexer, bool sub){
                        }
 
                        if(lexer->text[lexer->pos] == '\0'){ // Se verifica si el caracter en la posicion actual no indica el termino del codigo.
-                          fprintf(stderr, "(3) Error termino inesperado del codigo.\n"); // En el caso de que haya terminado se lanza un error indicando que hubo un termino inesperado.
+                          fprintf(stderr, "(3*) Error termino inesperado del codigo.\n"); // En el caso de que haya terminado se lanza un error indicando que hubo un termino inesperado.
                           exit(0);
                        }
 
@@ -524,7 +647,7 @@ Token get_variable_value(Lexer *lexer, bool sub){
                        }
 
                        if(lexer->text[lexer->pos] == '\0'){ // Se verifica si el caracter en la posicion actual no indica el termino del codigo.
-                          fprintf(stderr, "(3) Error termino inesperado del codigo.\n"); // En el caso de que haya terminado se lanza un error indicando que hubo un termino inesperado.
+                          fprintf(stderr, "(3/) Error termino inesperado del codigo.\n"); // En el caso de que haya terminado se lanza un error indicando que hubo un termino inesperado.
                           exit(0);
                        }
 
@@ -577,7 +700,7 @@ Token get_variable_value(Lexer *lexer, bool sub){
                        }
 
                        if(lexer->text[lexer->pos] == '\0'){ // Se verifica si el caracter en la posicion actual no indica el termino del codigo.
-                          fprintf(stderr, "(3) Error termino inesperado del codigo.\n"); // En el caso de que haya terminado se lanza un error indicando que hubo un termino inesperado.
+                          fprintf(stderr, "(3%) Error termino inesperado del codigo.\n"); // En el caso de que haya terminado se lanza un error indicando que hubo un termino inesperado.
                           exit(0);
                        }
 
@@ -618,10 +741,9 @@ Token get_variable_value(Lexer *lexer, bool sub){
              }
           }else if(c == '&'){
             char b = lexer->text[lexer->pos + 1];
-             if(b == '&'){ //En este caso se detecta un operador logico.
-                lexer->pos--;
+             if(b == '&'){ //En este caso se toma como un operador logico por lo tanto se frena el proceso.
                 break;
-             }else if(b == '=' && sub){ // Se incrementa el valor que le sigue.
+             }else if(b == '=' && sub){ // Se & el valor que le sigue.
                 if(!isSymbols){
                     if(u0 > 0){
                        lexer->pos += 2; // Se incrementa la posicion a 2 para seguir leyendo el codigo que sigue.
@@ -630,7 +752,7 @@ Token get_variable_value(Lexer *lexer, bool sub){
                        }
 
                        if(lexer->text[lexer->pos] == '\0'){ // Se verifica si el caracter en la posicion actual no indica el termino del codigo.
-                          fprintf(stderr, "(3) Error termino inesperado del codigo.\n"); // En el caso de que haya terminado se lanza un error indicando que hubo un termino inesperado.
+                          fprintf(stderr, "(3&) Error termino inesperado del codigo.\n"); // En el caso de que haya terminado se lanza un error indicando que hubo un termino inesperado.
                           exit(0);
                        }
 
@@ -666,17 +788,14 @@ Token get_variable_value(Lexer *lexer, bool sub){
                    fprintf(stderr, "(2) Symbols error in operation.\n");
                    exit(0);
                 }
-             }else{ // El token corresponde a una suma.
+             }else{
                 break;
              }
           }else if(c == '|'){
              char b = lexer->text[lexer->pos + 1];
-             if(b == '|'){ //En este caso se detecta un operador logico.
-                printf("POS0\n");
-                lexer->pos--;
+             if(b == '|'){ //En este caso se toma como un operador logico por lo tanto se frena el proceso.
                 break;
-             }else if(b == '=' && sub){ // Se | el valor que le sigue.
-                printf("POS1\n");
+             }else if(b == '=' && sub){ // Se & el valor que le sigue.
                 if(!isSymbols){
                     if(u0 > 0){
                        lexer->pos += 2; // Se incrementa la posicion a 2 para seguir leyendo el codigo que sigue.
@@ -685,7 +804,7 @@ Token get_variable_value(Lexer *lexer, bool sub){
                        }
 
                        if(lexer->text[lexer->pos] == '\0'){ // Se verifica si el caracter en la posicion actual no indica el termino del codigo.
-                          fprintf(stderr, "(3) Error termino inesperado del codigo.\n"); // En el caso de que haya terminado se lanza un error indicando que hubo un termino inesperado.
+                          fprintf(stderr, "(3|) Error termino inesperado del codigo.\n"); // En el caso de que haya terminado se lanza un error indicando que hubo un termino inesperado.
                           exit(0);
                        }
 
@@ -721,11 +840,10 @@ Token get_variable_value(Lexer *lexer, bool sub){
                    fprintf(stderr, "(2) Symbols error in operation.\n");
                    exit(0);
                 }
-             }else{ // El token corresponde a una suma.
-                printf("POS2\n");
+             }else{
                 break;
              }
-          }else if(c == '='){
+          }else if(c == '='){ // Igual a..
             char b = lexer->text[lexer->pos + 1];
              if(b == '='){ //En este caso se toma como un operador logico por lo tanto se frena el proceso.
                 lexer->pos--; // Se resta uno para que el operador logico quede completo. 
@@ -733,13 +851,13 @@ Token get_variable_value(Lexer *lexer, bool sub){
              }else{ // Se asigna el valor que le sigue.
                 if(!isSymbols){
                     if(u0 > 0){
-                       lexer->pos += 2; // Se incrementa la posicion a 2 para seguir leyendo el codigo que sigue.
+                       lexer->pos++; // Se incrementa la posicion a 1 para seguir leyendo el codigo que sigue.
                        while(lexer->text[lexer->pos] != '\0' && isspace(lexer->text[lexer->pos])){ // Se recorre el codigo hasta encontrar un caracter diferente a space y tab o \0
                              lexer->pos++;
                        }
 
                        if(lexer->text[lexer->pos] == '\0'){ // Se verifica si el caracter en la posicion actual no indica el termino del codigo.
-                          fprintf(stderr, "(3) Error termino inesperado del codigo.\n"); // En el caso de que haya terminado se lanza un error indicando que hubo un termino inesperado.
+                          fprintf(stderr, "(3=) Error termino inesperado del codigo.\n"); // En el caso de que haya terminado se lanza un error indicando que hubo un termino inesperado.
                           exit(0);
                        }
 
@@ -790,7 +908,7 @@ Token get_variable_value(Lexer *lexer, bool sub){
                        }
 
                        if(lexer->text[lexer->pos] == '\0'){ // Se verifica si el caracter en la posicion actual no indica el termino del codigo.
-                          fprintf(stderr, "(3) Error termino inesperado del codigo.\n"); // En el caso de que haya terminado se lanza un error indicando que hubo un termino inesperado.
+                          fprintf(stderr, "(3^) Error termino inesperado del codigo.\n"); // En el caso de que haya terminado se lanza un error indicando que hubo un termino inesperado.
                           exit(0);
                        }
 
@@ -829,27 +947,145 @@ Token get_variable_value(Lexer *lexer, bool sub){
              }else{ // El token corresponde a una suma.
                 break;
              }
+          }else if(c == '<'){
+             char b = lexer->text[lexer->pos + 1];
+             char o = lexer->text[lexer->pos + 2];
+             if(b == '='){ // Es un operador logico.
+                break;
+             }else if(b == '<' && o == '=' && sub){
+                if(!isSymbols){
+                    if(u0 > 0){
+                       lexer->pos += 3; // Se incrementa la posicion a 3 para seguir leyendo el codigo que sigue.
+                       while(lexer->text[lexer->pos] != '\0' && isspace(lexer->text[lexer->pos])){ // Se recorre el codigo hasta encontrar un caracter diferente a space y tab o \0
+                             lexer->pos++;
+                       }
+
+                       if(lexer->text[lexer->pos] == '\0'){ // Se verifica si el caracter en la posicion actual no indica el termino del codigo.
+                          fprintf(stderr, "(3<<=) Error termino inesperado del codigo.\n"); // En el caso de que haya terminado se lanza un error indicando que hubo un termino inesperado.
+                          exit(0);
+                       }
+
+                       //En el caso de que el caracter sea valido completamente se procede a validar si es NUMBER, CHAR o STRING.
+                       Token val = get_token_digit_char_string(lexer); // Esto retornara un tipo NUMBER, STRING, CHAR o en el caso de que no coincida NONE.
+                       if(val.type == TOKEN_CHAR || val.type == TOKEN_NUMBER){ // En el caso de que sea NUMBER o CHAR se procede a añadir el operador incrementando el valor leido.
+                          addOperatorNumber(operator, "<<=", val.type == TOKEN_NUMBER ? val.number_value : (double)(int)val.char_value);
+                          lexer->char_status = false;
+                       }else if(val.type == TOKEN_STRING){ // En el caso de que el tipo sea STRING se procede a añadir el operador y el valor.
+                          addOperatorString(operator, "<<=", val.string_value);
+                          free(val.string_value);
+                          lexer->string_status = false;
+                       }else{ //Se asume que es una variable.
+                          //Se procede a buscar nombre y valor.
+                          val = get_variable_value(lexer, false); // En este caso el segundo parametro es false para omitir la simbologia +=, -=, etc....
+                          if(val.type == TOKEN_NUMBER || val.type == TOKEN_CHAR){
+                             addOperatorNumber(operator, "<<=", val.type == TOKEN_NUMBER ? val.number_value : (double)(int)val.char_value);
+                             lexer->char_status = false;
+                          }else if(val.type == TOKEN_STRING){
+                             addOperatorString(operator, "<<=", val.string_value);
+                             free(val.string_value);
+                             lexer->string_status = false;
+                          }else{
+                             fprintf(stderr, "(err1) Error token desconocido\n");
+                          }
+                       }
+
+                    }else{
+                      fprintf(stderr, "(1) Error no se especifico el la variable.\n");
+                      exit(0);
+                    } 
+                }else{
+                   fprintf(stderr, "(2) Symbols error in operation.\n");
+                   exit(0);
+                }
+             }else{
+                break;
+             }
+          }else if(c == '>'){
+             char b = lexer->text[lexer->pos + 1];
+             char o = lexer->text[lexer->pos + 2];
+             if(b == '='){ // Es un operador logico.
+                break;
+             }else if(b == '>' && o == '=' && sub){
+                if(!isSymbols){
+                    if(u0 > 0){
+                       lexer->pos += 3; // Se incrementa la posicion a 3 para seguir leyendo el codigo que sigue.
+                       while(lexer->text[lexer->pos] != '\0' && isspace(lexer->text[lexer->pos])){ // Se recorre el codigo hasta encontrar un caracter diferente a space y tab o \0
+                             lexer->pos++;
+                       }
+
+                       if(lexer->text[lexer->pos] == '\0'){ // Se verifica si el caracter en la posicion actual no indica el termino del codigo.
+                          fprintf(stderr, "(3>>=) Error termino inesperado del codigo.\n"); // En el caso de que haya terminado se lanza un error indicando que hubo un termino inesperado.
+                          exit(0);
+                       }
+
+                       //En el caso de que el caracter sea valido completamente se procede a validar si es NUMBER, CHAR o STRING.
+                       Token val = get_token_digit_char_string(lexer); // Esto retornara un tipo NUMBER, STRING, CHAR o en el caso de que no coincida NONE.
+                       if(val.type == TOKEN_CHAR || val.type == TOKEN_NUMBER){ // En el caso de que sea NUMBER o CHAR se procede a añadir el operador incrementando el valor leido.
+                          addOperatorNumber(operator, ">>=", val.type == TOKEN_NUMBER ? val.number_value : (double)(int)val.char_value);
+                          lexer->char_status = false;
+                       }else if(val.type == TOKEN_STRING){ // En el caso de que el tipo sea STRING se procede a añadir el operador y el valor.
+                          addOperatorString(operator, ">>=", val.string_value);
+                          free(val.string_value);
+                          lexer->string_status = false;
+                       }else{ //Se asume que es una variable.
+                          //Se procede a buscar nombre y valor.
+                          val = get_variable_value(lexer, false); // En este caso el segundo parametro es false para omitir la simbologia +=, -=, etc....
+                          if(val.type == TOKEN_NUMBER || val.type == TOKEN_CHAR){
+                             addOperatorNumber(operator, ">>=", val.type == TOKEN_NUMBER ? val.number_value : (double)(int)val.char_value);
+                             lexer->char_status = false;
+                          }else if(val.type == TOKEN_STRING){
+                             addOperatorString(operator, ">>=", val.string_value);
+                             free(val.string_value);
+                             lexer->string_status = false;
+                          }else{
+                             fprintf(stderr, "(err1) Error token desconocido\n");
+                          }
+                       }
+
+                    }else{
+                      fprintf(stderr, "(1) Error no se especifico el la variable.\n");
+                      exit(0);
+                    } 
+                }else{
+                   fprintf(stderr, "(2) Symbols error in operation.\n");
+                   exit(0);
+                }
+             }else{
+                break;
+             }
           }else{
              var_name[u0] = c;
              lexer->pos++;
              u0++;
           }
     }
-
-    //Verificar si existe y obtener valor de la variable.
+    //Verificar si existe y obtener valor de la variable para luego transformala en token.
     //En el caso de que la variable sea numerica y los simbolos sean ++ o --, de incrementa 1 o se discrimina 1
 
     free(var_name);
     Token value = {TOKEN_NUMBER};
     value.number_value = 12;
     
-    int a = 0;
-    
     //----------------TEST OPERATOR-------------------
     //Esto solo es una prueba, me debo basar en esto para hacer la implementacion real con manejo de variables reales.
     Operator **pos = &operator;
     while(*pos && (*pos)->symbols){ //
-          if(strcmp((*pos)->symbols, "++") == 0 || strcmp((*pos)->symbols, "+=") == 0){
+          if(strcmp((*pos)->symbols, "++") == 0){
+             if((*pos)->status == NUMBER_STATUS){ 
+                if((*pos)->pos == OPERATOR_START){
+                   value.number_value += (*pos)->number_value;
+                }else if((*pos)->pos == OPERATOR_END){ // Se debe completar cuando se implemente al lenguaje de programacion
+                   printf("No completo aun\n");
+                   exit(0);
+                }else{
+                    value.number_value += (*pos)->number_value;
+                }
+             }else if((*pos)->status == STRING_STATUS){
+
+             }else if((*pos)->status == VAR_STATUS){
+
+             }
+          }else if(strcmp((*pos)->symbols, "+=") == 0){
              if((*pos)->status == NUMBER_STATUS){ 
                 value.number_value += (*pos)->number_value;
              }else if((*pos)->status == STRING_STATUS){
@@ -857,7 +1093,22 @@ Token get_variable_value(Lexer *lexer, bool sub){
              }else if((*pos)->status == VAR_STATUS){
 
              }
-          }else if(strcmp((*pos)->symbols, "--") == 0 || strcmp((*pos)->symbols, "-=") == 0){
+          }else if(strcmp((*pos)->symbols, "--") == 0){
+             if((*pos)->status == NUMBER_STATUS){ 
+                if((*pos)->pos == OPERATOR_START){
+                   value.number_value -= (*pos)->number_value;
+                }else if((*pos)->pos == OPERATOR_END){ // Se debe completar cuando se implemente al lenguaje de programacion
+                   printf("No completo aun\n");
+                   exit(0);
+                }else{
+                    value.number_value -= (*pos)->number_value;
+                }
+             }else if((*pos)->status == STRING_STATUS){
+
+             }else if((*pos)->status == VAR_STATUS){
+
+             }
+          }else if(strcmp((*pos)->symbols, "-=") == 0){
              if((*pos)->status == NUMBER_STATUS){ 
                 value.number_value -= (*pos)->number_value;
              }else if((*pos)->status == STRING_STATUS){
@@ -922,6 +1173,26 @@ Token get_variable_value(Lexer *lexer, bool sub){
                 long l0 = (long)value.number_value;
                 long l1 = (long)(*pos)->number_value;
                 value.number_value = (double)(l0 ^ l1);
+             }else if((*pos)->status == STRING_STATUS){
+
+             }else if((*pos)->status == VAR_STATUS){
+
+             }
+          }else if(strcmp((*pos)->symbols, "<<=") == 0){
+             if((*pos)->status == NUMBER_STATUS){ 
+                long l0 = (long)value.number_value;
+                long l1 = (long)(*pos)->number_value;
+                value.number_value = (double)(l0 << l1);
+             }else if((*pos)->status == STRING_STATUS){
+
+             }else if((*pos)->status == VAR_STATUS){
+
+             }
+          }else if(strcmp((*pos)->symbols, ">>=") == 0){
+             if((*pos)->status == NUMBER_STATUS){ 
+                long l0 = (long)value.number_value;
+                long l1 = (long)(*pos)->number_value;
+                value.number_value = (double)(l0 >> l1);
              }else if((*pos)->status == STRING_STATUS){
 
              }else if((*pos)->status == VAR_STATUS){
@@ -2740,7 +3011,7 @@ Token parse_tenary(Lexer* lexer) {
                             of[k] = c0;
                             k++;
                          }else{
-                            if(c0 != ':'){
+                            if(c0 != '$'){
                                replace[u] = c0;
                                u++;
                             }else{
