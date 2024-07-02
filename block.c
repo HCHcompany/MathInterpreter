@@ -82,6 +82,7 @@ void findCodeBlocks(const char *code, CodeBlock blocks[], int *blockCount) {
             }
         }
         p++;
+        break; // Temporal para frenar el proceso  y que no siga leyendo el codigo.
     }
 }
 
