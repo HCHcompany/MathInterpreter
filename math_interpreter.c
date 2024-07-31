@@ -446,12 +446,39 @@ Token get_variable_value(Lexer *lexer, bool sub){
     memset(var_name, '\0', sizeof(char) * (strlen(lexer->text) + 1));
     int u0 = 0; // Esta es la posicion del puntero donde se guarda el nombre de la variable.
     bool isSymbols = false; // Este especifica si ya se a declarado un simbolo "++" o "--" dentro de la operacion.
-    while(lexer->text[lexer->pos] != '\'' && lexer->text[lexer->pos] != '"' &&  lexer->text[lexer->pos] != '?' && lexer->text[lexer->pos] != '(' &&
+    while(lexer->text[lexer->pos] != '\'' && lexer->text[lexer->pos] != '"' &&  lexer->text[lexer->pos] != '?' &&
           lexer->text[lexer->pos] != ')' && lexer->text[lexer->pos] != '~' && lexer->text[lexer->pos] != '!' && lexer->text[lexer->pos] != ':' && 
           lexer->text[lexer->pos] != '\0'){
           char c = lexer->text[lexer->pos];
           if(c == ' ' || c == '\t'){
              lexer->pos++;
+          }else if(lexer->text[lexer->pos] == '('){
+             var_name[u0] = c;
+             lexer->pos++;
+             u0++;
+             int p0a = 1;
+             for(int xpc = lexer->pos; xpc < strlen(lexer->text); xpc++){
+                 char cb = lexer->text[xpc];
+                 if(cb == ')'){
+                    var_name[u0] = cb;
+                    lexer->pos++;
+                    u0++;
+                    p0a--;
+                    if(p0a == 0){
+                       break;
+                    }
+                 }else if(cb == '('){
+                    var_name[u0] = cb;
+                    lexer->pos++;
+                    u0++;
+                    p0a++;
+                 }else{
+                   var_name[u0] = cb;
+                   lexer->pos++;
+                   u0++;
+                 }
+             }
+             break;
           }else if(c == '+'){
              char b = lexer->text[lexer->pos + 1];
              if(b == '+'){ //Se incrementa 1.
@@ -1061,7 +1088,7 @@ Token get_variable_value(Lexer *lexer, bool sub){
     }
     //Verificar si existe y obtener valor de la variable para luego transformala en token.
     //En el caso de que la variable sea numerica y los simbolos sean ++ o --, de incrementa 1 o se discrimina 1
-
+    printf("Test name var for implementation: %s\n", var_name);
     free(var_name);
     Token value = {TOKEN_NUMBER};
     value.number_value = 12;
